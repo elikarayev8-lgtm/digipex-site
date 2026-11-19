@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Digipex Dental — Ağıllı Diş Planlama Proqramı</title>
+<meta name="description" content="Digipex — diş xəritəsi, müalicə tarixçəsi, foto/rentgen arxivi, randevu təqvimi və Azərbaycan dilində səsli asistent bir proqramda.">
+<meta property="og:title" content="Digipex Dental — Ağıllı Diş Planlama Proqramı">
+<meta property="og:description" content="Stomatoloqlar üçün diş planlama proqramı.">
+<meta property="og:image" content="https://digipexdental.com/img/digipex-mascot.jpg">
+<meta property="og:url" content="https://digipexdental.com/">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:#0E1420;color:#E8EDF5;font-family:'Inter',system-ui,sans-serif;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+  a{color:#2DD4EC;text-decoration:none}
+  a:hover{color:#56E3F5}
+  .sg{font-family:'Space Grotesk',sans-serif}
+  .wrap{max-width:1312px;margin:0 auto;padding-left:64px;padding-right:64px}
+
+  .btn-primary{background:#2DD4EC;color:#0A1018 !important;font-weight:700;transition:background .15s ease,transform .15s ease;display:inline-block}
+  .btn-primary:hover{background:#56E3F5;transform:translateY(-1px)}
+  .btn-ghost{border:1px solid #2A3650;color:#E8EDF5 !important;font-weight:600;display:inline-block;transition:background .15s}
+  .btn-ghost:hover{background:rgba(45,212,236,.10)}
+
+  header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:20px;padding:22px 64px;border-bottom:1px solid #202A3D}
+  .brand{display:flex;align-items:center;gap:12px;color:#E8EDF5 !important}
+  .brand img{width:38px;height:38px;object-fit:contain;border-radius:8px}
+  .brand span{font-weight:700;font-size:21px;letter-spacing:.2px}
+  nav{display:flex;align-items:center;gap:36px;flex-wrap:wrap}
+  .navlink{color:#93A1B8 !important;font-size:15px;font-weight:500}
+  .navlink:hover{color:#E8EDF5 !important}
+  .nav-cta{font-size:14px;padding:11px 22px;border-radius:999px;white-space:nowrap}
+
+  .hero{display:flex;flex-wrap:wrap;align-items:center;gap:56px;padding-top:96px;padding-bottom:80px}
+  .hero-text{flex:1 1 480px;min-width:0}
+  .pill{display:inline-block;background:rgba(45,212,236,.10);color:#2DD4EC;font-size:13px;font-weight:700;letter-spacing:1.2px;padding:7px 14px;border-radius:999px;margin-bottom:24px}
+  h1{font-size:52px;line-height:1.12;font-weight:700;margin:0 0 22px;letter-spacing:-.5px}
+  .lead{font-size:18px;line-height:1.6;color:#93A1B8;margin:0 0 36px;max-width:480px}
+  .cta-row{display:flex;flex-wrap:wrap;gap:16px;margin-bottom:28px}
+  .cta-row a{font-size:15px;padding:15px 28px;border-radius:12px}
+  .fine{font-size:13px;color:#5C6B83;margin:0}
+  .hero-art{flex:1 1 360px;min-width:0;display:flex;justify-content:center}
+  .glow{position:relative;width:340px;height:340px;display:flex;align-items:center;justify-content:center}
+  .glow::before{content:"";position:absolute;inset:0;background:radial-gradient(circle,rgba(45,212,236,.22) 0%,rgba(45,212,236,0) 70%)}
+  .glow img{position:relative;width:300px;height:auto;-webkit-mask-image:radial-gradient(circle,#000 55%,transparent 72%);mask-image:radial-gradient(circle,#000 55%,transparent 72%)}
+
+  section.features{padding-top:88px;padding-bottom:88px}
+  .sec-head{text-align:center;max-width:620px;margin:0 auto 56px}
+  h2{font-size:34px;font-weight:700;margin:0 0 14px;line-height:1.2}
+  .sec-head p{font-size:16px;color:#93A1B8;margin:0}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:24px}
+  .feat-card{background:#1A2233;border:1px solid #232E45;border-radius:16px;padding:28px;transition:border-color .15s ease,transform .15s ease}
+  .feat-card:hover{border-color:#2DD4EC;transform:translateY(-2px)}
+  .feat-card h3{font-size:17px;font-weight:700;margin:18px 0 8px}
+  .feat-card p{font-size:14px;line-height:1.55;color:#93A1B8;margin:0}
+
+  .showcase{padding-top:40px;padding-bottom:100px;display:flex;flex-wrap:wrap-reverse;align-items:center;gap:56px}
+  .shot{flex:1 1 520px;min-width:0;border-radius:18px;overflow:hidden;border:1px solid #232E45;box-shadow:0 30px 60px -20px rgba(0,0,0,.55)}
+  .shot img{display:block;width:100%;height:auto}
+  .show-text{flex:1 1 400px;min-width:0}
+  .show-text>p{font-size:16px;line-height:1.6;color:#93A1B8;margin:0 0 24px}
+  .checks{display:flex;flex-direction:column;gap:14px}
+  .checks div{display:flex;align-items:flex-start;gap:12px;font-size:15px;color:#C7D2E3}
+  .checks b{color:#2DD4EC;flex-shrink:0}
+
+  .pricing{background:#161D2B;border-top:1px solid #202A3D;border-bottom:1px solid #202A3D;padding:96px 0}
+  .plan{max-width:420px;margin:0 auto;background:#1A2233;border:1px solid #2DD4EC;border-radius:20px;padding:40px}
+  .plan-label{font-size:15px;font-weight:700;color:#2DD4EC;letter-spacing:.4px;margin-bottom:8px}
+  .plan-price{display:flex;align-items:baseline;gap:8px;margin-bottom:24px;flex-wrap:wrap}
+  .plan-price .sg{font-size:44px;font-weight:700}
+  .plan-price span:last-child{font-size:15px;color:#93A1B8}
+  .plan-list{display:flex;flex-direction:column;gap:12px;margin-bottom:32px}
+  .plan-list div{display:flex;gap:10px;font-size:14px;color:#C7D2E3}
+  .plan-list b{color:#2DD4EC;font-weight:400}
+  .plan .btn-primary{display:block;text-align:center;font-size:15px;padding:15px;border-radius:12px}
+  .plan .note{font-size:12px;color:#5C6B83;text-align:center;margin:16px 0 0}
+
+  footer{padding:48px 64px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:20px;font-size:14px;color:#5C6B83}
+  footer .f-brand{display:flex;align-items:center;gap:10px}
+  footer img{width:24px;height:24px;object-fit:contain;border-radius:5px}
+
+  @media (max-width:760px){
+    header{padding:16px 20px}
+    nav{display:none}
+    .wrap{padding-left:20px;padding-right:20px}
+    .hero{padding-top:48px;padding-bottom:40px;gap:32px}
+    h1{font-size:36px}
+    h2{font-size:27px}
+    .glow{width:260px;height:260px}.glow img{width:230px}
+    section.features{padding-top:56px;padding-bottom:56px}
+    .showcase{padding-bottom:64px;gap:32px}
+    .pricing{padding:64px 0}
+    .plan{padding:28px}
+    footer{padding:32px 20px}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <a href="#" class="brand">
+    <img src="img/digipex-logo.jpg" alt="Digipex loqo">
+    <span class="sg">Digipex</span>
+  </a>
+  <nav>
+    <a class="navlink" href="#features">Xüsusiyyətlər</a>
+    <a class="navlink" href="#showcase">Diş Xəritəsi</a>
+    <a class="navlink" href="#pricing">Qiymət</a>
+    <a class="navlink" href="#contact">Əlaqə</a>
+  </nav>
+  <a href="https://github.com/elikarayev8-lgtm/bluex-dental-planlama/releases/download/v1.3.0/BlueXDental_Setup.exe" class="btn-primary nav-cta">Yüklə (Windows)</a>
+</header>
+
+<main>
+  <section class="hero wrap">
+    <div class="hero-text">
+      <div class="pill">STOMATOLOJİ PROQRAM TƏMİNATI</div>
+      <h1 class="sg">Klinikanız üçün ağıllı diş planlama proqramı</h1>
+      <p class="lead">Diş xəritəsi, müalicə tarixçəsi, foto/rentgen arxivi, randevu təqvimi və Azərbaycan dilində səsli asistent — hamısı bir proqramda, tam offline işləyir.</p>
+      <div class="cta-row">
+        <a href="https://github.com/elikarayev8-lgtm/bluex-dental-planlama/releases/download/v1.3.0/BlueXDental_Setup.exe" class="btn-primary">Pulsuz Yüklə</a>
+        <a href="#features" class="btn-ghost">Xüsusiyyətlərə bax</a>
+      </div>
+      <p class="fine">Windows üçün · İnternetsiz işləyir · Hasta məlumatları yerli saxlanır</p>
+    </div>
+    <div class="hero-art">
+      <div class="glow"><img src="img/digipex-mascot.jpg" alt="Digipex"></div>
+    </div>
+  </section>
+
+  <section id="features" class="features wrap">
+    <div class="sec-head">
+      <h2 class="sg">Klinikanızın ehtiyacı olan hər şey</h2>
+      <p>Bir pasientin bütün müalicə həyatını tək yerdə izləyin.</p>
+    </div>
+    <div class="grid">
+      <div class="feat-card">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#2DD4EC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a5 5 0 0 1 5 5c0 3-2 4-2 7v3a3 3 0 0 1-6 0v-3c0-3-2-4-2-7a5 5 0 0 1 5-5Z"/></svg>
+        <h3>İnteraktiv Diş Xəritəsi</h3>
+        <p>Plan, Müalicə və İlkin Vəziyyət tabları ilə hər dişin tarixçəsini vizual izləyin.</p>
+      </div>
+      <div class="feat-card">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#2DD4EC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3.2"/><path d="M8 5l1.2-2h5.6L16 5"/></svg>
+        <h3>Foto &amp; Rentgen Qalereyası</h3>
+        <p>Dişə basılı saxlayaraq aid foto/rentgenləri tam-ekranda, naviqasiya ilə açın.</p>
+      </div>
+      <div class="feat-card">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#2DD4EC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4"/></svg>
+        <h3>Səsli AI Asistent</h3>
+        <p>Azərbaycan dilində danışaraq müalicə qeyd edin — əlləriniz boş qalsın.</p>
+      </div>
+      <div class="feat-card">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#2DD4EC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>
+        <h3>Randevu Təqvimi</h3>
+        <p>Günlük/həftəlik görünüşlə bütün randevularınızı planlayın, xatırladın.</p>
+      </div>
+      <div class="feat-card">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#2DD4EC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M12 20V4M20 20v-7"/></svg>
+        <h3>Statistika &amp; Analitika</h3>
+        <p>Cins, yaş, diş növü üzrə filtrlənmiş qrafiklərlə klinikanın mənzərəsini görün.</p>
+      </div>
+      <div class="feat-card">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#2DD4EC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 2.5 15.4 0 18M12 3c-2.5 2.6-2.5 15.4 0 18"/></svg>
+        <h3>Çox-dilli İnterfeys</h3>
+        <p>Azərbaycan, İngilis, Rus və Türk dillərində — klinikanız kimə xidmət edirsə.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="showcase" class="showcase wrap">
+    <div class="shot"><img src="img/dis-xeritesi.jpg" alt="Digipex diş xəritəsi ekranı" loading="lazy"></div>
+    <div class="show-text">
+      <h2 class="sg">Diş xəritəsini bir baxışda görün</h2>
+      <p>Hər diş üçün vəziyyət rənglə işarələnir, seçilmiş dişin tam tarixçəsi yan paneldə açılır.</p>
+      <div class="checks">
+        <div><b>✓</b><span>Sağlam, Kanal, Dolğu, Qapaq, İmplant və s. vəziyyətlər rənglə göstərilir</span></div>
+        <div><b>✓</b><span>Plan / Müalicə / İlkin Vəziyyət — üç ayrı mərhələ tək pasientdə</span></div>
+        <div><b>✓</b><span>Müalicə zaman xətti ilə hansı işin nə vaxt görüldüyünü izləyin</span></div>
+        <div><b>✓</b><span>Qeyd dəftərində "#NN" ilə işarələnən dişlər xəritədə nida ilə görünür</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="pricing" class="pricing">
+    <div class="wrap">
+      <div class="sec-head" style="margin-bottom:48px">
+        <h2 class="sg">Qiymətləndirmə</h2>
+        <p>Klinikanız üçün bir dəfəlik lisenziya.</p>
+      </div>
+      <div class="plan">
+        <div class="plan-label">KLİNİKA LİSENZİYASI</div>
+        <div class="plan-price"><span class="sg">[QİYMƏT]</span><span>/ bir dəfəlik</span></div>
+        <div class="plan-list">
+          <div><b>✓</b> Limitsiz pasient sayı</div>
+          <div><b>✓</b> Bütün xüsusiyyətlər daxil</div>
+          <div><b>✓</b> Pulsuz güncəlləmələr</div>
+          <div><b>✓</b> Yerli dəstək</div>
+        </div>
+        <a href="#contact" class="btn-primary">Əlaqə Saxla</a>
+        <p class="note">Onlayn ödəniş/lisenziya sistemi tezliklə aktivləşəcək</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer id="contact">
+  <div class="f-brand">
+    <img src="img/digipex-logo.jpg" alt="">
+    <span>© 2026 Digipex. Bütün hüquqlar qorunur.</span>
+  </div>
+  <div>digipexdental.com</div>
+</footer>
+
+</body>
+</html>
