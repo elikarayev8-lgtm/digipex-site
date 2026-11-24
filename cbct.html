@@ -1,0 +1,1875 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Digipex CBCT Baxış — DICOM görüntüləyici</title>
+<meta name="description" content="CBCT və DICOM (.dcm) fayllarını brauzerdə açın: aksial, koronal, sagittal, panoramik görüntü, fırlanan kəsiklər və ölçü aləti. Fayllar heç yerə yüklənmir.">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0E1420">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Digipex CBCT">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/dicom-parser@1.8.21/dist/dicomParser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:#0A0F18;color:#E8EDF5;font-family:Inter,system-ui,sans-serif;display:flex;flex-direction:column;overflow:hidden}
+  a{color:#2DD4EC;text-decoration:none}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid #1C2638;background:#0E1420;flex-wrap:wrap}
+  .brand{display:flex;align-items:center;gap:10px;color:#E8EDF5;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:17px;margin-right:6px}
+  .brand img{width:28px;height:28px;border-radius:6px}
+  .brand small{font-family:Inter;font-weight:600;color:#2DD4EC;font-size:12px;letter-spacing:.8px;background:rgba(45,212,236,.1);padding:3px 8px;border-radius:999px}
+  .sp{flex:1}
+  .sep{width:1px;height:24px;background:#2A3650;margin:0 2px}
+  button,select,label.btn{font:600 13px Inter,sans-serif;color:#E8EDF5;background:#1A2233;border:1px solid #2A3650;border-radius:9px;padding:7px 11px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+  button:hover,label.btn:hover{border-color:#2DD4EC}
+  button.on{background:#2DD4EC;color:#0A1018;border-color:#2DD4EC}
+  button.draw{background:#f5b94a;color:#1a1200;border-color:#f5b94a}
+  .primary{background:#2DD4EC;color:#0A1018;border-color:#2DD4EC}
+  .primary:hover{background:#56E3F5}
+  input[type=file]{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none}
+  label.btn{position:relative}
+  .grid{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:4px;padding:4px;min-height:0}
+  .view{position:relative;background:#000;border:1px solid #1C2638;border-radius:8px;overflow:hidden;min-height:0}
+  .view canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;cursor:crosshair}
+  .view.measure canvas{cursor:copy}
+  .view.rotating canvas{cursor:grabbing}
+  .vlabel{position:absolute;left:10px;top:8px;font-size:12px;font-weight:700;letter-spacing:.6px;pointer-events:none;text-shadow:0 1px 2px #000}
+  .vinfo{position:absolute;right:10px;top:8px;font-size:11px;color:#93A1B8;pointer-events:none;text-align:right;text-shadow:0 1px 2px #000}
+  .vhint{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);background:rgba(245,185,74,.95);color:#1a1200;font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;pointer-events:none;display:none;white-space:nowrap;max-width:94%;overflow:hidden;text-overflow:ellipsis}
+  .maxbtn{position:absolute;right:8px;bottom:8px;padding:4px 8px;font-size:11px;opacity:.7}
+  .maxbtn:hover{opacity:1}
+  .grid.single{grid-template-columns:1fr;grid-template-rows:1fr}
+  .grid.single > *:not(.max){display:none !important}
+  .quad4{display:flex;flex-direction:column;min-height:0;gap:4px}
+  .tabs{display:flex;gap:4px}
+  .tabs button{flex:1;justify-content:center;padding:6px;border-radius:8px}
+  .quad4 .view,.quad4 .panel{flex:1}
+  .panel{background:#0E1420;border:1px solid #1C2638;border-radius:8px;padding:14px 18px;overflow:auto;font-size:13px;min-height:0}
+  .panel h3{margin:0 0 10px;font-size:13px;letter-spacing:.8px;color:#2DD4EC}
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:5px 14px;margin-bottom:16px}
+  .kv span:nth-child(odd){color:#5C6B83}
+  .kv b{font-weight:600}
+  .help{color:#93A1B8;line-height:1.75;margin:0;padding-left:18px}
+  .help b{color:#E8EDF5}
+  .wl{display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+  .wl input[type=range]{flex:1;min-width:120px;accent-color:#2DD4EC}
+  .hu{font-size:22px;font-family:'Space Grotesk';font-weight:700;color:#fff}
+  .pano-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;color:#5C6B83;font-size:13px;line-height:1.6;padding:24px;pointer-events:none}
+  .pano-empty b{color:#f5b94a}
+  .drop{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#0A0F18;z-index:5;padding:24px}
+  .drop.hidden{display:none}
+  .dropbox{max-width:620px;width:100%;border:2px dashed #2A3650;border-radius:20px;padding:44px 32px;text-align:center;background:#0E1420;transition:border-color .15s,background .15s}
+  .dropbox.over{border-color:#2DD4EC;background:#10202c}
+  .dropbox h1{font-family:'Space Grotesk';font-size:28px;margin:14px 0 10px}
+  .dropbox p{color:#93A1B8;line-height:1.6;margin:0 0 22px}
+  .dropbox .row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+  .dropbox .row label.btn{padding:12px 18px;font-size:14px}
+  .safe{margin-top:22px;font-size:12px;color:#5C6B83}
+  .safe b{color:#3fe0a0;font-weight:600}
+  .prog{margin:22px auto 0;max-width:360px;display:none}
+  .prog .track{height:6px;background:#1A2233;border-radius:99px;overflow:hidden}
+  .prog .fill{height:100%;width:0;background:#2DD4EC;transition:width .1s}
+  .prog div.t{font-size:12px;color:#93A1B8;margin-top:8px}
+  .err{display:none;margin-top:18px;background:#2a1414;border:1px solid #5c2626;color:#ffb4b4;padding:12px 14px;border-radius:10px;font-size:13px;text-align:left;line-height:1.5}
+  .main{position:relative;flex:1;display:flex;min-height:0}
+  .disclaimer{font-size:11px;color:#5C6B83;padding:6px 16px;border-top:1px solid #1C2638;background:#0E1420}
+  .barhint{font-size:12px;color:#5C6B83}
+  .tools{width:236px;flex:none;background:#0E1420;border-left:1px solid #1C2638;padding:12px 12px 20px;overflow:auto;display:flex;flex-direction:column;gap:7px}
+  .tools h4{margin:10px 0 2px;font-size:11px;letter-spacing:1px;color:#5C6B83}
+  .tools h4:first-child{margin-top:0}
+  .tools .wide{width:100%;justify-content:center;white-space:normal;text-align:center}
+  .tgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+  .tgrid button{flex-direction:column;gap:3px;padding:8px 2px;font-size:17px;justify-content:center}
+  .tgrid button span{font-size:10.5px;font-weight:600}
+  .trow{display:flex;gap:5px}
+  .trow button{flex:1;justify-content:center}
+  .irow{display:flex;gap:6px}
+  .irow label,.tooth{flex:1;display:flex;flex-direction:column;gap:3px;font-size:11px;color:#5C6B83;font-weight:600}
+  .irow select{width:100%}
+  .tooth{flex-direction:row;align-items:center;gap:8px}
+  .tooth input{flex:1;min-width:0;font:600 13px Inter;color:#E8EDF5;background:#1A2233;border:1px solid #2A3650;border-radius:9px;padding:7px 10px}
+  #imList{display:flex;flex-direction:column;gap:4px}
+  .imitem{display:flex;align-items:center;gap:8px;padding:7px 9px;border:1px solid #232E45;border-radius:9px;cursor:pointer;font-size:12px;background:#121a28}
+  .imitem.sel{border-color:#2DD4EC;background:#10202c}
+  .imitem i{width:10px;height:10px;border-radius:50%;flex:none}
+  .imitem b{font-weight:700}
+  .imitem span{color:#93A1B8;margin-left:auto}
+  .imact{display:none;flex-direction:column;gap:6px;padding:9px;border:1px solid #232E45;border-radius:10px}
+  .imact.show{display:flex}
+  .iminfo{font-size:11px;color:#93A1B8;line-height:1.5}
+  button.danger:hover{border-color:#ff6b6b;color:#ffb4b4}
+  .cslab{font-size:11px;color:#93A1B8;font-weight:600;margin-top:2px;display:flex;justify-content:space-between}
+  .cslab b{color:#E8EDF5}
+  .csrow span{flex:2;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:#E8EDF5;background:#121a28;border:1px solid #232E45;border-radius:9px}
+  .rotr{width:100%;accent-color:#c084fc}
+  .tip{font-size:11px;color:#5C6B83;line-height:1.5;margin:4px 0 0}
+  .view.active{border-color:#2DD4EC66}
+  .xr{position:absolute;right:248px;top:12px;width:min(640px,calc(100% - 270px));background:#0E1420;border:1px solid #2A3650;border-radius:14px;box-shadow:0 24px 60px rgba(0,0,0,.6);z-index:4;display:none;flex-direction:column;overflow:hidden}
+  .xr.show{display:flex}
+  .xr.big{left:12px !important;right:248px !important;width:auto;top:12px !important;bottom:12px}
+  .xr.big .xr-film{height:calc(100vh - 170px)}
+  .xr-head{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid #1C2638;cursor:move;user-select:none}
+  .xr-head b{font-size:13px}
+  .xr-head span{font-size:11px;color:#5C6B83;flex:1}
+  .xr-head button{padding:4px 9px}
+  .xr-body{display:flex;gap:12px;padding:12px}
+  .xr-film{flex:1;position:relative;background:#050608;border-radius:10px;display:flex;align-items:center;justify-content:center;height:min(58vh,480px)}
+  .xr-film canvas{display:block}
+  .xr-busy{position:absolute;inset:0;display:none;align-items:center;justify-content:center;color:#93A1B8;font-size:13px;background:rgba(5,6,8,.6)}
+  .xr-ctl{width:180px;display:flex;flex-direction:column;gap:9px;font-size:11px;color:#93A1B8;font-weight:600}
+  .xr-ctl label{display:flex;flex-direction:column;gap:4px}
+  .xr-ctl label b{color:#E8EDF5;float:right}
+  .xr-ctl input[type=range]{accent-color:#7CFFB2;width:100%}
+  .xr-ctl select{width:100%}
+  .xr-ctl .chk{flex-direction:row;align-items:center;gap:7px;color:#C7D2E3}
+  .xr-ctl button{justify-content:center}
+  .xr-note{font-size:10.5px;color:#5C6B83;line-height:1.45;font-weight:500}
+  .tool-xray .view canvas{cursor:crosshair}
+  .tool-pan .view canvas{cursor:grab}
+  .tool-zoom .view canvas{cursor:zoom-in}
+  .tool-wl .view canvas{cursor:ns-resize}
+  .tool-rot .view canvas{cursor:alias}
+  .tool-implant .view canvas{cursor:cell}
+  .mtabs,.sheet-handle,.slbtns,.fab{display:none}
+  .tgrid .more{display:none}
+  .fab{position:absolute;left:50%;top:10px;transform:translateX(-50%);z-index:5;gap:8px;background:rgba(14,20,32,.95);border:1px solid #2A3650;border-radius:12px;padding:6px}
+  .fab.show{display:flex}
+  .btn-install{display:none}
+  /* ---------- telefon ---------- */
+  @media (max-width:800px), (pointer:coarse) and (max-width:1000px){
+    body{overflow:hidden}
+    .bar{padding:6px 8px;gap:6px;flex-wrap:nowrap}
+    .bar .barhint,.brand small{display:none}
+    .brand{font-size:15px;margin-right:2px}.brand img{width:24px;height:24px}
+    .bar label.btn,.bar button{padding:7px 9px;font-size:12px}
+    .main{flex-direction:column}
+    .mtabs{display:flex;gap:4px;padding:6px 6px 0;overflow-x:auto;scrollbar-width:none}
+    .mtabs button{flex:1;padding:7px 6px;font-size:12px;border-radius:8px;justify-content:center;white-space:nowrap}
+    .mtabs button.on{background:#2DD4EC;color:#0A1018;border-color:#2DD4EC}
+    .grid{grid-template-columns:1fr !important;grid-template-rows:1fr !important;padding:6px 6px 84px;overflow:hidden}
+    .grid > *{display:none !important}
+    .grid > .mshow{display:flex !important}
+    .grid > .view.mshow{display:block !important}
+    .quad4 .tabs{display:none}
+    .maxbtn{display:none}
+    .slbtns{display:flex;flex-direction:column;gap:8px;position:absolute;right:8px;top:50%;transform:translateY(-50%);z-index:2}
+    .slbtns button{width:42px;height:42px;padding:0;justify-content:center;font-size:16px;border-radius:12px;background:rgba(26,34,51,.85)}
+    .vhint{bottom:auto;top:34px;white-space:normal;text-align:center;max-width:88%}
+    .tools{position:fixed;left:0;right:0;bottom:0;width:auto;max-height:78vh;z-index:6;border-left:0;border-top:1px solid #2A3650;border-radius:18px 18px 0 0;
+      transform:translateY(calc(100% - 72px));transition:transform .25s ease;box-shadow:0 -12px 40px rgba(0,0,0,.5);padding:0 12px calc(16px + env(safe-area-inset-bottom))}
+    .tools.open{transform:none;overflow:auto}
+    .sheet-handle{display:flex;justify-content:center;align-items:center;height:20px;cursor:pointer;position:sticky;top:0;background:#0E1420;z-index:1}
+    .sheet-handle span{width:44px;height:5px;border-radius:9px;background:#3a4a6a}
+    .tools h4:first-of-type{display:none}
+    .tgrid{grid-template-columns:repeat(4,1fr)}
+    .tools:not(.open) .tgrid{grid-template-columns:repeat(8,1fr)}
+    .tools:not(.open) .tgrid button span{display:none}
+    .tools:not(.open) .tgrid button{padding:10px 0;font-size:18px}
+    .tgrid .more{display:flex}
+    .xr{position:fixed;left:0 !important;right:0 !important;top:0 !important;bottom:0;width:auto;border-radius:0;z-index:8;padding-top:env(safe-area-inset-top)}
+    .disclaimer{display:none}
+    .xr-body{flex-direction:column;overflow:auto}
+    .xr-film{height:52vh;flex:none}
+    .xr-ctl{width:auto;display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}
+    .xr-ctl button,.xr-note{grid-column:1/-1}
+    .btn-install.show{display:inline-flex}
+    .dropbox{padding:28px 18px}.dropbox h1{font-size:22px}
+  }
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <a class="brand" href="./"><img src="digipex-logo.jpg" alt="">Digipex <small>CBCT BAXIŞ</small></a>
+  <label class="btn primary">📁 Qovluq aç<input id="inDir" type="file" webkitdirectory directory multiple></label>
+  <label class="btn">📄 Fayl / ZIP<input id="inFiles" type="file" multiple></label>
+  <span class="sp"></span>
+  <button class="btn-install" id="btnInstall" title="Telefona quraşdır">📲 Quraşdır</button>
+  <span class="barhint hide-m">Sağ düymə — bucağı fırlat · Təkər — kəsik · Ctrl+təkər — zoom</span>
+</div>
+
+<div class="main">
+  <div class="mtabs" id="mtabs"><button data-mv="axial" class="on">Aksial</button><button data-mv="coronal">Koronal</button><button data-mv="sagittal">Sagittal</button><button data-mv="pano">Panoramik</button><button data-mv="info">Məlumat</button></div>
+  <div class="fab" id="fab"><button id="fabUndo">↶ Geri</button><button id="fabDone" class="primary">✓ Bitir</button><button id="fabCancel">✕ Ləğv</button></div>
+  <div class="grid" id="grid">
+    <div class="view" id="v-axial"><canvas></canvas><div class="slbtns"><button data-sl="-1">▲</button><button data-sl="1">▼</button></div><div class="vlabel" style="color:#2DD4EC">AKSİAL</div><div class="vinfo"></div><div class="vhint"></div><button class="maxbtn">⤢</button></div>
+    <div class="view" id="v-coronal"><canvas></canvas><div class="slbtns"><button data-sl="-1">▲</button><button data-sl="1">▼</button></div><div class="vlabel" style="color:#f5b94a">KORONAL</div><div class="vinfo"></div><div class="vhint"></div><button class="maxbtn">⤢</button></div>
+    <div class="view" id="v-sagittal"><canvas></canvas><div class="slbtns"><button data-sl="-1">▲</button><button data-sl="1">▼</button></div><div class="vlabel" style="color:#c084fc">SAGİTTAL</div><div class="vinfo"></div><div class="vhint"></div><button class="maxbtn">⤢</button></div>
+    <div class="quad4" id="quad4">
+      <div class="tabs"><button id="tabPano">Panoramik</button><button id="tabInfo" class="on">Məlumat</button></div>
+      <div class="view" id="v-pano" style="display:none"><canvas></canvas><div class="vlabel" style="color:#3fe0a0">PANORAMİK</div><div class="vinfo"></div>
+        <div class="pano-empty" id="panoEmpty">Panoramik görüntü üçün sağdakı <b>〰 Panoramik çək</b> düyməsini basın və<br>aksial görüntüdə diş qövsü boyunca soldan sağa nöqtələr qoyun.<br>Bitirmək üçün <b>iki dəfə klikləyin</b> və ya <b>Enter</b> basın.</div>
+        <button class="maxbtn">⤢</button></div>
+      <div class="panel" id="panel">
+        <h3>KURSOR</h3>
+        <div class="kv">
+          <span>Dəyər</span><span class="hu" id="huVal">—</span>
+          <span>Mövqe</span><b id="posVal">—</b>
+          <span>Bucaq</span><b id="angVal">—</b>
+        </div>
+        <h3>PƏNCƏRƏ</h3>
+        <div class="wl"><span style="color:#5C6B83;width:44px">Mərkəz</span><input id="rC" type="range"><b id="tC" style="width:52px">—</b></div>
+        <div class="wl"><span style="color:#5C6B83;width:44px">En</span><input id="rW" type="range"><b id="tW" style="width:52px">—</b></div>
+        <h3>TƏDQİQAT</h3>
+        <div class="kv" id="meta"></div>
+        <h3>İDARƏETMƏ</h3>
+        <ul class="help">
+          <li><b>Sol klik / sürüşdür</b> — seçilmiş alət (sağ paneldə)</li>
+          <li><b>Sağ düymə ilə sürüşdür</b> — kəsiklərin bucağını fırlat (Shift — 5° addım)</li>
+          <li><b>Təkər</b> — kəsiklər arasında keç · <b>Ctrl + təkər</b> — zoom</li>
+          <li><b>Shift + sürüşdür</b> — parlaqlıq / kontrast · <b>Orta düymə</b> — sürüşdür</li>
+          <li><b>İmplant</b>: gövdəsindən tutub sürüşdür — yerini dəyiş; ucundakı dairədən tut — bucağını dəyiş</li>
+          <li><b>Panoramikdə klik</b> — qövsə perpendikulyar kəsik · <b>təkər</b> — qatı sürüşdür</li>
+          <li><b>Kəsik (sagittal) üzərində təkər</b> və ya <b>← →</b> — kəsik qövs boyunca hərəkət edir</li>
+          <li><b>İmplant ətrafında fırlat</b> sürgüsü — kəsiklər implantın oxu ətrafında fırlanır</li>
+          <li><b>☢ 2D rentgen</b> — kəsikdə sahəni seçin; şüa kəsiyə perpendikulyar keçir. Periapikal üçün kəsiyi diş sırasına paralel qoyun.</li>
+          <li><b>İki dəfə klik</b> — zoom-u sıfırla · <b>Delete</b> — seçilmiş implantı sil</li>
+          <li><b>Telefonda:</b> iki barmaqla sıxıb-açın — zoom, iki barmaqla sürüşdürün — pan, iki barmaqla fırladın — kəsik bucağı, ▲▼ — kəsiklər</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <aside class="tools" id="tools">
+    <div class="sheet-handle" id="sheetHandle"><span></span></div>
+    <h4>ALƏTLƏR</h4>
+    <div class="tgrid">
+      <button data-tool="cross" class="on" title="Kursor: kəsişmə nöqtəsini seç, implantı tut">✛<span>Kursor</span></button>
+      <button data-tool="pan" title="Görüntünü sürüşdür">✋<span>Sürüşdür</span></button>
+      <button data-tool="zoom" title="Yuxarı/aşağı sürüşdürərək böyüt">🔍<span>Zoom</span></button>
+      <button data-tool="wl" title="Parlaqlıq / kontrast">☀️<span>Kontrast</span></button>
+      <button data-tool="rot" title="Kəsiklərin bucağını fırlat">⟳<span>Fırlat</span></button>
+      <button data-tool="measure" title="İki nöqtə arası məsafə (mm)">📏<span>Ölçü</span></button>
+      <button data-tool="slice" title="Yuxarı/aşağı sürüşdürərək kəsiklər arasında keç">⇕<span>Kəsik</span></button>
+      <button class="more" id="btnMore" title="Bütün alətlər">☰<span>Daha çox</span></button>
+    </div>
+    <div class="trow">
+      <button id="btnZoomIn" title="Aktiv görüntünü böyüt">＋</button>
+      <button id="btnZoomOut" title="Aktiv görüntünü kiçilt">－</button>
+      <button id="btnFit" title="Zoom və sürüşməni sıfırla">Sığdır</button>
+    </div>
+    <button id="btnReset" class="wide">⟲ Bucaq və mövqeyi sıfırla</button>
+    <button id="btnLines" class="wide">👁 Kəsik xətlərini gizlət</button>
+    <button id="btnClear" class="wide">✕ Ölçüləri sil</button>
+
+    <h4>GÖRÜNTÜ</h4>
+    <select id="preset" class="wide" title="Pəncərə (W/L)">
+      <option value="auto">Pəncərə: Avto</option>
+      <option value="file">Fayldakı dəyər</option>
+      <option value="700,3000">Sümük</option>
+      <option value="1500,4000">Diş / emal</option>
+      <option value="40,400">Yumşaq toxuma</option>
+    </select>
+    <button id="btnInv" class="wide">🌓 Tərs rənglər</button>
+
+    <h4>PANORAMİK</h4>
+    <button id="btnPano" class="wide">〰 Panoramik çək</button>
+    <div class="trow" id="panoDrawRow" style="display:none"><button id="panoUndo" title="Son nöqtəni sil (Backspace)">↶ Geri</button><button id="panoCancel" class="danger" title="Çəkməkdən imtina et (Esc)">✕ Ləğv et</button></div>
+    <button id="panoDelete" class="wide danger" style="display:none">🗑 Panoramanı sil</button>
+    <select id="panoThick" class="wide" title="Panoramik qatın qalınlığı">
+      <option value="0">Qalınlıq: 0 mm</option>
+      <option value="5">Qalınlıq: 5 mm</option>
+      <option value="10" selected>Qalınlıq: 10 mm</option>
+      <option value="15">Qalınlıq: 15 mm</option>
+      <option value="20">Qalınlıq: 20 mm</option>
+      <option value="30">Qalınlıq: 30 mm</option>
+    </select>
+    <div class="cslab">Qövs boyunca kəsik</div>
+    <div class="trow csrow"><button id="csPrev" title="Əvvəlki kəsik (← oxu)">◀</button><span id="csInfo">—</span><button id="csNext" title="Növbəti kəsik (→ oxu)">▶</button></div>
+    <select id="csStepSel" class="wide" title="Kəsiklər arası məsafə">
+      <option value="0.5">Addım: 0.5 mm</option>
+      <option value="1" selected>Addım: 1 mm</option>
+      <option value="2">Addım: 2 mm</option>
+      <option value="3">Addım: 3 mm</option>
+    </select>
+
+    <h4>2D RENTGEN SİMULYATORU</h4>
+    <button id="btnXray" class="wide">☢ Sensoru yerləşdir → 2D rentgen</button>
+    <p class="tip" style="margin:0">Sagittal (və ya istənilən) kəsikdə dişin üzərinə klikləyin və ya sahə çəkin — sensor ölçüsündə periapikal şəkil alınır, şüa kəsiyə perpendikulyar keçir.</p>
+
+    <h4>İMPLANT</h4>
+    <button id="btnAddImplant" class="wide primary">＋ İmplant əlavə et</button>
+    <div class="irow">
+      <label>Ø mm<select id="imD"><option>3.0</option><option>3.3</option><option>3.5</option><option>3.75</option><option selected>4.0</option><option>4.3</option><option>4.5</option><option>5.0</option><option>5.5</option><option>6.0</option></select></label>
+      <label>Uzunluq<select id="imL"><option>6</option><option>7</option><option>8</option><option>8.5</option><option selected>10</option><option>11.5</option><option>12</option><option>13</option><option>14</option><option>16</option></select></label>
+    </div>
+    <div id="imList"></div>
+    <div id="imActions" class="imact">
+      <label class="tooth">Diş №<input id="imTooth" maxlength="3" placeholder="36"></label>
+      <button id="imAlign" class="wide">🎯 Kəsikləri implanta yönəlt</button>
+      <div class="cslab">İmplant ətrafında fırlat <b id="imRotVal">0°</b></div>
+      <input id="imRot" type="range" min="0" max="359" value="0" class="rotr">
+      <div class="trow"><button id="imFlip" title="Baş / apeks istiqamətini çevir">⇅ Çevir</button><button id="imDel" class="danger">🗑 Sil</button></div>
+      <div class="iminfo" id="imInfo"></div>
+    </div>
+    <p class="tip">İmplantı əlavə etmək üçün düyməni basıb kəsikdə implantın mərkəzinə klikləyin. Ən rahatı: panoramik qövsü çəkin, ◀ ▶ ilə dişin yerinə gəlin və implantı KƏSİK görüntüsündə qoyun.</p>
+  </aside>
+
+  <div class="xr" id="xr">
+    <div class="xr-head" id="xrHead"><b>☢ 2D Rentgen simulyasiyası</b><span id="xrSrc"></span><button id="xrBig" title="Böyüt / kiçilt (iki dəfə klik)">⤢</button><button id="xrClose" title="Bağla">✕</button></div>
+    <div class="xr-body">
+      <div class="xr-film"><canvas id="xrCanvas"></canvas><div class="xr-busy" id="xrBusy">Hesablanır…</div></div>
+      <div class="xr-ctl">
+        <label>Sensor ölçüsü<select id="xrSize"><option value="s2" selected>Ölçü 2 · 26×36 mm</option><option value="s1">Ölçü 1 · 20×30 mm</option><option value="free">Sərbəst sahə</option></select></label>
+        <label>Qalınlıq (dərinlik)<select id="xrThick"><option value="10">10 mm</option><option value="15" selected>15 mm</option><option value="20">20 mm</option><option value="30">30 mm</option><option value="50">50 mm</option><option value="0">Bütün həcm</option></select></label>
+        <label>Gərginlik <b id="xrKvV">60 kV</b><input id="xrKv" type="range" min="50" max="90" value="60"></label>
+        <label>Ekspozisiya <b id="xrExpV">100%</b><input id="xrExp" type="range" min="30" max="300" value="100"></label>
+        <label>Kontrast <b id="xrConV">1.2</b><input id="xrCon" type="range" min="50" max="250" value="120"></label>
+        <label>Lokal kontrast <b id="xrLcV">1.8</b><input id="xrLc" type="range" min="0" max="500" step="10" value="180"></label>
+        <label>Kəskinlik <b id="xrShV">1.5</b><input id="xrSh" type="range" min="0" max="1000" step="10" value="150"></label>
+        <label>Şaquli bucaq <b id="xrVaV">0°</b><input id="xrVa" type="range" min="-30" max="30" value="0"></label>
+        <label>Üfüqi bucaq <b id="xrHaV">0°</b><input id="xrHa" type="range" min="-30" max="30" value="0"></label>
+        <label>Yönləndirmə<select id="xrFlip"><option value="n">Kəsikdəki kimi</option><option value="v">Şaquli çevir (yuxarı çənə)</option><option value="h">Üfüqi çevir</option><option value="r">180° çevir</option></select></label>
+        <label>Sensor forması<select id="xrShape"><option value="chamfer" selected>Kəsik künclər</option><option value="round">Yuvarlaq künclər</option><option value="none">Düzbucaqlı</option></select></label>
+        <label class="chk"><input id="xrNoise" type="checkbox" checked> Real səs-küy</label>
+        <label class="chk"><input id="xrInv" type="checkbox"> Neqativ</label>
+        <button id="xrSave" class="primary">⬇ PNG saxla</button>
+        <div class="xr-note" id="xrNote"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="drop" id="drop">
+    <div class="dropbox" id="dropbox">
+      <svg width="54" height="54" viewBox="0 0 24 24" fill="none" stroke="#2DD4EC" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg>
+      <h1>CBCT / DICOM faylını açın</h1>
+      <p>CBCT qovluğunu, .dcm fayllarını və ya ZIP arxivini bura sürükləyin.<br>Aksial, koronal, sagittal kəsiklər avtomatik qurulacaq, panoramik görüntünü özünüz çəkəcəksiniz.</p>
+      <div class="row">
+        <label class="btn primary">📁 Qovluq seç<input id="inDir2" type="file" webkitdirectory directory multiple></label>
+        <label class="btn">📄 Fayl / ZIP seç<input id="inFiles2" type="file" multiple></label>
+      </div>
+      <div class="prog" id="prog"><div class="track"><div class="fill" id="progFill"></div></div><div class="t" id="progText"></div></div>
+      <div class="err" id="err"></div>
+      <div class="safe"><b>🔒 Fayllar heç yerə yüklənmir</b> — hər şey sizin kompüterinizdə, brauzerdə açılır.</div>
+    </div>
+  </div>
+</div>
+<div class="disclaimer">Digipex CBCT Baxış — yalnız baxış və ilkin qiymətləndirmə üçündür, diaqnostik tibbi cihaz deyil.</div>
+
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const S = {
+  vol: null, nx: 0, ny: 0, nz: 0, sx: 1, sy: 1, sz: 1,
+  P: [0, 0, 0],                                   // crosshair point (mm, world)
+  n: { axial: [0, 0, 1], coronal: [0, 1, 0], sagittal: [1, 0, 0] }, // plane normals
+  wc: 400, ww: 2000, fileWL: null, autoWL: null,
+  invert: false, measure: false, lut: new Uint8Array(65536), min: -1000, max: 3000,
+  pano: { pts: [], drawing: false, data: null, thick: 10, offset: 0, sel: -1, hover: null },
+  tool: 'cross', showLines: true, implants: [], sel: null, active: 'axial',
+  cs: false, csStep: 1   // cross-section linked to the panoramic curve; step in mm
+};
+const dpr = () => window.devicePixelRatio || 1;
+const COL = { axial: '#2DD4EC', coronal: '#f5b94a', sagittal: '#c084fc', pano: '#3fe0a0' };
+const NAMES = ['axial', 'coronal', 'sagittal'];
+
+/* ---------------- vector helpers ---------------- */
+const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const mul = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
+const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const len = a => Math.hypot(a[0], a[1], a[2]);
+const norm = a => { const l = len(a) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+const rot = (v, k, t) => { const c = Math.cos(t), s = Math.sin(t); return add(add(mul(v, c), mul(cross(k, v), s)), mul(k, dot(k, v) * (1 - c))); };
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const vmin = () => Math.min(S.sx, S.sy, S.sz);
+
+/* ---------------- views ---------------- */
+const VIEWS = {};
+function makeView(name) {
+  const el = document.getElementById('v-' + name);
+  const canvas = el.querySelector('canvas');
+  const off = document.createElement('canvas');
+  const v = { name, el, canvas, ctx: canvas.getContext('2d'), off, offCtx: off.getContext('2d'),
+    raw: null, W: 0, H: 0, img: null, C: [0, 0, 0], zoom: 1, panx: 0, pany: 0, base: 1,
+    meas: [], pending: null, hover: null, needSample: true, needMap: true, needDraw: true,
+    info: el.querySelector('.vinfo'), hint: el.querySelector('.vhint') };
+  new ResizeObserver(() => { v.needSample = true; schedule(); }).observe(el);
+  el.querySelector('.maxbtn').onclick = () => {
+    const g = $('#grid');
+    const target = name === 'pano' ? $('#quad4') : el;
+    const isMax = !target.classList.contains('max');
+    g.querySelectorAll('.max').forEach(x => x.classList.remove('max'));
+    if (isMax) target.classList.add('max');
+    g.classList.toggle('single', isMax);
+    if (name === 'pano' && isMax) showTab('pano');
+    markAll(true);
+  };
+  VIEWS[name] = v;
+  return v;
+}
+NAMES.forEach(makeView);
+const PV = makeView('pano');
+PV.isPano = true;
+
+function basis(v) {
+  const n = S.n[v.name];
+  let U, V;
+  if (v.name === 'axial') {
+    let r = [1, 0, 0]; if (Math.abs(dot(r, n)) > 0.95) r = [0, 1, 0];
+    U = norm(sub(r, mul(n, dot(r, n)))); V = cross(n, U);
+  } else {
+    let r = [0, 0, -1]; if (Math.abs(dot(r, n)) > 0.95) r = [0, 1, 0];
+    V = norm(sub(r, mul(n, dot(r, n))));
+    U = v.name === 'coronal' ? cross(V, n) : cross(n, V);
+  }
+  return { n, U, V };
+}
+function scaleOf(v) { return v.base / v.zoom; } // mm per device pixel
+function updateBase(v) {
+  const ext = Math.max(S.nx * S.sx, S.ny * S.sy, S.nz * S.sz);
+  v.base = ext * 1.04 / Math.max(1, Math.min(v.canvas.width, v.canvas.height));
+}
+function screenToWorld(v, e) {
+  const r = v.canvas.getBoundingClientRect(), X = (e.clientX - r.left) * dpr(), Y = (e.clientY - r.top) * dpr();
+  const { U, V } = basis(v), s = scaleOf(v);
+  const a = (X - v.canvas.width / 2 - v.panx * dpr()) * s, b = (Y - v.canvas.height / 2 - v.pany * dpr()) * s;
+  return add(add(v.C, mul(U, a)), mul(V, b));
+}
+function worldToScreen(v, w, B) {
+  const { U, V } = B || basis(v), s = scaleOf(v), d = sub(w, v.C);
+  return [v.canvas.width / 2 + v.panx * dpr() + dot(d, U) / s, v.canvas.height / 2 + v.pany * dpr() + dot(d, V) / s];
+}
+function projectCenter(v) { const n = S.n[v.name]; v.C = sub(v.C, mul(n, dot(sub(v.C, S.P), n))); }
+
+/* ---------------- sampling ---------------- */
+// fills out[k] for k in [0,count) with trilinear samples along x0 + k*d (voxel coords); returns nothing
+function sampleRow(out, o, count, x, y, z, dx, dy, dz, acc) {
+  const vol = S.vol, nx = S.nx, ny = S.ny, nz = S.nz, rc = nx * ny, OUT = S.min;
+  const sx1 = nx > 1 ? 1 : 0, sy1 = ny > 1 ? nx : 0, sz1 = nz > 1 ? rc : 0;
+  const mx = nx - 1, my = ny - 1, mz = nz - 1;
+  for (let k = 0; k < count; k++, x += dx, y += dy, z += dz) {
+    let val;
+    if (x < -0.5 || y < -0.5 || z < -0.5 || x > mx + 0.5 || y > my + 0.5 || z > mz + 0.5) val = OUT;
+    else {
+      const xx = x < 0 ? 0 : x > mx ? mx : x, yy = y < 0 ? 0 : y > my ? my : y, zz = z < 0 ? 0 : z > mz ? mz : z;
+      let x0 = xx | 0, y0 = yy | 0, z0 = zz | 0;
+      if (x0 >= mx) x0 = Math.max(0, mx - 1); if (y0 >= my) y0 = Math.max(0, my - 1); if (z0 >= mz) z0 = Math.max(0, mz - 1);
+      const fx = nx > 1 ? xx - x0 : 0, fy = ny > 1 ? yy - y0 : 0, fz = nz > 1 ? zz - z0 : 0;
+      const i = z0 * rc + y0 * nx + x0;
+      const a = vol[i], b = vol[i + sx1], c = vol[i + sy1], d = vol[i + sy1 + sx1];
+      const e = vol[i + sz1], f = vol[i + sz1 + sx1], g = vol[i + sz1 + sy1], h = vol[i + sz1 + sy1 + sx1];
+      const c0 = (a + (b - a) * fx) + ((c + (d - c) * fx) - (a + (b - a) * fx)) * fy;
+      const c1 = (e + (f - e) * fx) + ((g + (h - g) * fx) - (e + (f - e) * fx)) * fy;
+      val = c0 + (c1 - c0) * fz;
+    }
+    if (acc) out[o + k] += val; else out[o + k] = val;
+  }
+}
+const toVox = w => [w[0] / S.sx, w[1] / S.sy, w[2] / S.sz];
+function valueAt(w) {
+  const x = Math.round(w[0] / S.sx), y = Math.round(w[1] / S.sy), z = Math.round(w[2] / S.sz);
+  if (x < 0 || y < 0 || z < 0 || x >= S.nx || y >= S.ny || z >= S.nz) return null;
+  return S.vol[z * S.nx * S.ny + y * S.nx + x];
+}
+
+function sampleView(v) {
+  const cw = v.canvas.width, ch = v.canvas.height, s = scaleOf(v);
+  const pm = Math.max(s, vmin() * 0.6);
+  let W = Math.max(1, Math.round(cw * s / pm)), H = Math.max(1, Math.round(ch * s / pm));
+  const cap = 1100; if (W > cap || H > cap) { const k = cap / Math.max(W, H); W = Math.max(1, Math.round(W * k)); H = Math.max(1, Math.round(H * k)); }
+  const kx = cw * s / W, ky = ch * s / H;
+  const { U, V } = basis(v);
+  const o = add(add(v.C, mul(U, (0.5 * cw / W - cw / 2 - v.panx * dpr()) * s)), mul(V, (0.5 * ch / H - ch / 2 - v.pany * dpr()) * s));
+  const ov = toVox(o), du = toVox(mul(U, kx)), dv = toVox(mul(V, ky));
+  if (!v.raw || v.raw.length !== W * H) v.raw = new Float32Array(W * H);
+  v.W = W; v.H = H;
+  for (let r = 0; r < H; r++) {
+    sampleRow(v.raw, r * W, W, ov[0] + dv[0] * r, ov[1] + dv[1] * r, ov[2] + dv[2] * r, du[0], du[1], du[2], false);
+  }
+}
+function mapView(v) {
+  const W = v.W, H = v.H;
+  if (!W) return;
+  if (v.off.width !== W || v.off.height !== H || !v.img) { v.off.width = W; v.off.height = H; v.img = v.offCtx.createImageData(W, H); }
+  const d = v.img.data, raw = v.raw, lut = S.lut;
+  for (let i = 0, j = 0; i < W * H; i++, j += 4) {
+    let q = Math.round(raw[i]) + 32768; q = q < 0 ? 0 : q > 65535 ? 65535 : q;
+    const g = lut[q]; d[j] = d[j + 1] = d[j + 2] = g; d[j + 3] = 255;
+  }
+  v.offCtx.putImageData(v.img, 0, 0);
+}
+
+/* ---------------- panoramic ---------------- */
+function catmull(p0, p1, p2, p3, t) {
+  const t2 = t * t, t3 = t2 * t;
+  return [0, 1, 2].map(i => 0.5 * (2 * p1[i] + (-p0[i] + p2[i]) * t + (2 * p0[i] - 5 * p1[i] + 4 * p2[i] - p3[i]) * t2 + (-p0[i] + 3 * p1[i] - 3 * p2[i] + p3[i]) * t3));
+}
+function splineDense(pts) {
+  if (pts.length < 2) return pts.slice();
+  const P = [pts[0], ...pts, pts[pts.length - 1]], out = [];
+  for (let i = 1; i < P.length - 2; i++) for (let k = 0; k < 24; k++) out.push(catmull(P[i - 1], P[i], P[i + 1], P[i + 2], k / 24));
+  out.push(pts[pts.length - 1]);
+  return out;
+}
+function resample(dense, step) {
+  const out = [dense[0]]; let need = step;
+  for (let i = 1; i < dense.length; i++) {
+    let a = dense[i - 1]; const b = dense[i]; let segLen = len(sub(b, a));
+    while (segLen >= need) {
+      const t = need / segLen; a = add(a, mul(sub(b, a), t)); out.push(a);
+      segLen -= need; need = step;
+    }
+    need -= segLen;
+  }
+  return out;
+}
+function computePano() {
+  const pn = S.pano;
+  if (pn.pts.length < 3 || !S.vol) { pn.data = null; return; }
+  const axis = pn.axis, down = mul(axis, -1), p0 = pn.pts[0];
+  const flat = pn.pts.map(p => sub(p, mul(axis, dot(sub(p, p0), axis))));
+  let pm = Math.max(vmin(), 0.15);
+  const dense = splineDense(flat);
+  let total = 0; for (let i = 1; i < dense.length; i++) total += len(sub(dense[i], dense[i - 1]));
+  // height range from volume corners
+  let hmin = Infinity, hmax = -Infinity;
+  for (const cx of [0, (S.nx - 1) * S.sx]) for (const cy of [0, (S.ny - 1) * S.sy]) for (const cz of [0, (S.nz - 1) * S.sz]) {
+    const h = dot(sub([cx, cy, cz], p0), down); hmin = Math.min(hmin, h); hmax = Math.max(hmax, h);
+  }
+  const T = pn.thick;
+  let nT = T > 0 ? Math.max(2, Math.round(T / pm)) : 1;
+  let W = Math.max(2, Math.round(total / pm)), H = Math.max(2, Math.round((hmax - hmin) / pm));
+  while (W * H * nT > 25e6) { pm *= 1.25; nT = T > 0 ? Math.max(2, Math.round(T / pm)) : 1; W = Math.round(total / pm); H = Math.round((hmax - hmin) / pm); }
+  const cols = resample(dense, pm); W = cols.length;
+  const tan = cols.map((c, i) => norm(sub(cols[Math.min(W - 1, i + 1)], cols[Math.max(0, i - 1)])));
+  let N = tan.map(t => norm(cross(t, axis)));
+  let cx = [0, 0, 0]; flat.forEach(p => cx = add(cx, p)); cx = mul(cx, 1 / flat.length);
+  let sgn = 0; cols.forEach((c, i) => sgn += dot(sub(c, cx), N[i]));
+  if (sgn < 0) N = N.map(n => mul(n, -1));
+  const raw = new Float32Array(W * H), tmp = new Float32Array(H);
+  const dDown = toVox(mul(down, pm));
+  for (let i = 0; i < W; i++) {
+    tmp.fill(0);
+    for (let k = 0; k < nT; k++) {
+      const o = T > 0 ? -T / 2 + (k + 0.5) * T / nT : 0;
+      const start = add(add(cols[i], mul(N[i], pn.offset + o)), mul(down, hmin));
+      const sv = toVox(start);
+      sampleRow(tmp, 0, H, sv[0], sv[1], sv[2], dDown[0], dDown[1], dDown[2], true);
+    }
+    for (let r = 0; r < H; r++) raw[r * W + i] = tmp[r] / nT;
+  }
+  pn.data = { W, H, pm, cols, tan, N, down, hmin, p0, raw };
+  PV.raw = raw; PV.W = W; PV.H = H;
+  if (pn.sel >= W) pn.sel = -1;
+}
+function panoGeom() {
+  const d = S.pano.data, cw = PV.canvas.width, ch = PV.canvas.height;
+  const f = Math.min(cw / d.W, ch / d.H) * PV.zoom;
+  const dw = d.W * f, dh = d.H * f;
+  return { f, dw, dh, ox: (cw - dw) / 2 + PV.panx * dpr(), oy: (ch - dh) / 2 + PV.pany * dpr() };
+}
+function panoFromEvent(e) {
+  const r = PV.canvas.getBoundingClientRect(), g = panoGeom();
+  return [((e.clientX - r.left) * dpr() - g.ox) / g.f - 0.5, ((e.clientY - r.top) * dpr() - g.oy) / g.f - 0.5];
+}
+function panoNavigate(u, w) {
+  const d = S.pano.data; if (!d) return;
+  const i = clamp(Math.round(u), 0, d.W - 1), r = clamp(w, 0, d.H - 1);
+  S.pano.sel = i; S.cs = true;
+  S.P = add(add(d.cols[i], mul(d.N[i], S.pano.offset)), mul(d.down, d.hmin + r * d.pm));
+  S.n.axial = S.pano.axis.slice();
+  S.n.sagittal = d.tan[i].slice();
+  S.n.coronal = norm(cross(S.n.axial, S.n.sagittal));
+  NAMES.forEach(n => { projectCenter(VIEWS[n]); VIEWS[n].needSample = true; });
+  PV.needDraw = true; schedule();
+}
+
+// step the cross-section along the curve, keeping the current height
+function csStep(dir) {
+  const d = S.pano.data; if (!S.cs || !d || S.pano.sel < 0) return false;
+  const k = Math.max(1, Math.round(S.csStep / d.pm));
+  const r = (dot(sub(S.P, d.p0), d.down) - d.hmin) / d.pm;
+  panoNavigate(clamp(S.pano.sel + dir * k, 0, d.W - 1), r);
+  return true;
+}
+// re-orient the cross-section to the curve point nearest to p (p itself stays the crosshair)
+function csSnap(p) {
+  const d = S.pano.data; if (!d) return;
+  const axis = S.pano.axis, pf = sub(p, mul(axis, dot(sub(p, d.p0), axis)));
+  let best = 0, bd = Infinity;
+  for (let i = 0; i < d.W; i++) { const q = sub(pf, d.cols[i]), dd = dot(q, q); if (dd < bd) { bd = dd; best = i; } }
+  S.pano.sel = best;
+  S.n.axial = axis.slice(); S.n.sagittal = d.tan[best].slice(); S.n.coronal = norm(cross(S.n.axial, S.n.sagittal));
+}
+
+/* ---------------- drawing ---------------- */
+function buildLut() {
+  const lo = S.wc - S.ww / 2, span = Math.max(1, S.ww), lut = S.lut;
+  for (let i = 0; i < 65536; i++) {
+    let g = ((i - 32768 - lo) / span) * 255;
+    g = g < 0 ? 0 : g > 255 ? 255 : g | 0;
+    lut[i] = S.invert ? 255 - g : g;
+  }
+}
+function fitCanvas(v) {
+  const c = v.canvas, cw = Math.max(1, Math.round(c.clientWidth * dpr())), ch = Math.max(1, Math.round(c.clientHeight * dpr()));
+  if (c.width !== cw || c.height !== ch) { c.width = cw; c.height = ch; if (!v.isPano) { updateBase(v); v.needSample = true; } return true; }
+  return false;
+}
+function lineThrough(ctx, x, y, dx, dy, L) { ctx.beginPath(); ctx.moveTo(x - dx * L, y - dy * L); ctx.lineTo(x + dx * L, y + dy * L); ctx.stroke(); }
+function drawMeasure(ctx, a, b, mm) {
+  ctx.strokeStyle = '#3fe0a0'; ctx.fillStyle = '#3fe0a0'; ctx.lineWidth = 2 * dpr();
+  ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke();
+  for (const p of [a, b]) { ctx.beginPath(); ctx.arc(p[0], p[1], 3 * dpr(), 0, 7); ctx.fill(); }
+  const txt = mm.toFixed(1) + ' mm', tx = (a[0] + b[0]) / 2 + 8 * dpr(), ty = (a[1] + b[1]) / 2 - 8 * dpr();
+  ctx.font = `600 ${12 * dpr()}px Inter, sans-serif`;
+  const tw = ctx.measureText(txt).width;
+  ctx.fillStyle = 'rgba(0,0,0,.7)'; ctx.fillRect(tx - 4 * dpr(), ty - 13 * dpr(), tw + 8 * dpr(), 18 * dpr());
+  ctx.fillStyle = '#3fe0a0'; ctx.fillText(txt, tx, ty);
+}
+function drawView(v) {
+  const ctx = v.ctx, cw = v.canvas.width, ch = v.canvas.height;
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, cw, ch);
+  if (!S.vol || !v.W) return;
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(v.off, 0, 0, cw, ch);
+  const B = basis(v), Ps = worldToScreen(v, S.P, B), L = cw + ch;
+  // crosshair: intersection lines with the other two planes
+  ctx.lineWidth = 1.2 * dpr();
+  for (const o of NAMES) {
+    if (o === v.name || !S.showLines) continue;
+    const dir = cross(B.n, S.n[o]);
+    let dx = dot(dir, B.U), dy = dot(dir, B.V); const l = Math.hypot(dx, dy); if (l < 1e-6) continue;
+    dx /= l; dy /= l;
+    ctx.strokeStyle = COL[o]; ctx.globalAlpha = 0.8;
+    // gap around the centre so the anatomy under the cursor stays visible
+    const gap = 14 * dpr();
+    ctx.beginPath(); ctx.moveTo(Ps[0] - dx * L, Ps[1] - dy * L); ctx.lineTo(Ps[0] - dx * gap, Ps[1] - dy * gap);
+    ctx.moveTo(Ps[0] + dx * gap, Ps[1] + dy * gap); ctx.lineTo(Ps[0] + dx * L, Ps[1] + dy * L); ctx.stroke();
+    // rotation handles
+    ctx.globalAlpha = 1; ctx.fillStyle = COL[o];
+    const hr = Math.min(cw, ch) * 0.36;
+    for (const sg of [-1, 1]) { ctx.beginPath(); ctx.arc(Ps[0] + dx * hr * sg, Ps[1] + dy * hr * sg, 3.5 * dpr(), 0, 7); ctx.fill(); }
+  }
+  ctx.globalAlpha = 1;
+  // panoramic curve in axial view
+  if (v.name === 'axial' && S.pano.pts.length) {
+    const pts = S.pano.pts.slice();
+    if (S.pano.drawing && S.pano.hover) pts.push(S.pano.hover);
+    const dense = splineDense(pts).map(p => worldToScreen(v, p, B));
+    ctx.strokeStyle = COL.pano; ctx.lineWidth = 2 * dpr(); ctx.setLineDash([6 * dpr(), 4 * dpr()]);
+    ctx.beginPath(); dense.forEach((p, i) => i ? ctx.lineTo(...p) : ctx.moveTo(...p)); ctx.stroke(); ctx.setLineDash([]);
+    if (S.pano.data && S.pano.thick > 0 && !S.pano.drawing) {
+      // thickness band
+      const d = S.pano.data; ctx.globalAlpha = 0.35; ctx.lineWidth = 1 * dpr();
+      for (const sgn of [-1, 1]) {
+        ctx.beginPath();
+        d.cols.forEach((c, i) => { if (i % 3 && i !== d.W - 1) return; const p = worldToScreen(v, add(c, mul(d.N[i], S.pano.offset + sgn * S.pano.thick / 2)), B); i ? ctx.lineTo(...p) : ctx.moveTo(...p); });
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+    ctx.fillStyle = COL.pano;
+    S.pano.pts.forEach(p => { const s = worldToScreen(v, p, B); ctx.beginPath(); ctx.arc(s[0], s[1], 4.5 * dpr(), 0, 7); ctx.fill(); });
+  }
+  drawImplants(v, ctx, p => worldToScreen(v, p, B), B.n);
+  drawXrSel(v, ctx, B);
+  // measurements on this plane
+  const tol = vmin() * 0.75;
+  const onPlane = p => Math.abs(dot(sub(p, S.P), B.n)) < tol;
+  const list = v.meas.filter(m => onPlane(m.a) && onPlane(m.b));
+  if (v.pending && v.hover && onPlane(v.pending)) list.push({ a: v.pending, b: v.hover });
+  for (const m of list) drawMeasure(ctx, worldToScreen(v, m.a, B), worldToScreen(v, m.b, B), len(sub(m.b, m.a)));
+  if (v.name === 'sagittal') {
+    const lab = v.el.querySelector('.vlabel');
+    const t = S.cs && S.pano.data ? `KƏSİK · qövs ${(S.pano.sel * S.pano.data.pm).toFixed(1)} mm` : 'SAGİTTAL';
+    if (lab.textContent !== t) lab.textContent = t;
+    const ci = $('#csInfo'); if (ci) ci.textContent = S.cs && S.pano.data ? `${(S.pano.sel * S.pano.data.pm).toFixed(1)} / ${((S.pano.data.W - 1) * S.pano.data.pm).toFixed(0)} mm` : '—';
+  }
+  const depth = dot(S.P, B.n);
+  v.info.textContent = `${depth.toFixed(1)} mm  ·  ×${v.zoom.toFixed(1)}`;
+}
+function drawPano() {
+  const ctx = PV.ctx, cw = PV.canvas.width, ch = PV.canvas.height;
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, cw, ch);
+  const d = S.pano.data;
+  $('#panoEmpty').style.display = d ? 'none' : 'flex';
+  if (!d) { PV.info.textContent = ''; return; }
+  const g = panoGeom();
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(PV.off, g.ox, g.oy, g.dw, g.dh);
+  drawImplants(PV, ctx, w => panoProject(w, g), null);
+  ctx.lineWidth = 1.2 * dpr(); ctx.globalAlpha = S.showLines ? 0.85 : 0;
+  // axial level
+  const h = dot(sub(S.P, d.p0), d.down), r = (h - d.hmin) / d.pm;
+  if (r >= 0 && r <= d.H) { const y = g.oy + (r + 0.5) * g.f; ctx.strokeStyle = COL.axial; ctx.beginPath(); ctx.moveTo(g.ox, y); ctx.lineTo(g.ox + g.dw, y); ctx.stroke(); }
+  if (S.pano.sel >= 0) { const x = g.ox + (S.pano.sel + 0.5) * g.f; ctx.strokeStyle = COL.sagittal; ctx.beginPath(); ctx.moveTo(x, g.oy); ctx.lineTo(x, g.oy + g.dh); ctx.stroke(); }
+  ctx.globalAlpha = 1;
+  // mm ruler along the bottom
+  ctx.fillStyle = 'rgba(255,255,255,.65)'; ctx.font = `${10 * dpr()}px Inter, sans-serif`;
+  const tick = 10 / d.pm * g.f; // 10 mm in screen px
+  if (tick > 6 * dpr()) for (let k = 0, x = g.ox; x <= g.ox + g.dw; k++, x += tick) {
+    ctx.fillRect(x, g.oy + g.dh - (k % 5 ? 5 : 10) * dpr(), 1 * dpr(), (k % 5 ? 5 : 10) * dpr());
+  }
+  PV.info.textContent = `Qat: ${S.pano.thick} mm · sürüşmə ${S.pano.offset >= 0 ? '+' : ''}${S.pano.offset.toFixed(1)} mm · ×${PV.zoom.toFixed(1)}`;
+}
+
+let raf = 0, panoDirty = false;
+function schedule() { if (!raf) raf = requestAnimationFrame(frame); }
+function frame() {
+  raf = 0;
+  for (const n of NAMES) {
+    const v = VIEWS[n];
+    fitCanvas(v);
+    if (!S.vol) { drawView(v); continue; }
+    if (v.needSample) { sampleView(v); v.needSample = false; v.needMap = true; }
+    if (v.needMap) { mapView(v); v.needMap = false; v.needDraw = true; }
+    if (v.needDraw) { drawView(v); v.needDraw = false; }
+  }
+  if (PV.el.style.display !== 'none') {
+    fitCanvas(PV);
+    if (panoDirty) { computePano(); panoDirty = false; PV.needMap = true; }
+    if (S.pano.data && PV.needMap) { mapView(PV); PV.needMap = false; }
+    drawPano();
+  }
+  updatePanel();
+}
+function markAll(sample) {
+  for (const n of NAMES) { const v = VIEWS[n]; v.needDraw = true; if (sample) v.needSample = true; else v.needMap = true; }
+  PV.needMap = true; schedule();
+}
+function remapAll() { for (const n of NAMES) VIEWS[n].needMap = true; PV.needMap = true; schedule(); }
+function redrawAll() { for (const n of NAMES) VIEWS[n].needDraw = true; schedule(); }
+
+function updatePanel() {
+  if (!S.vol) return;
+  const val = valueAt(S.P);
+  $('#huVal').textContent = val === null ? '—' : val;
+  $('#posVal').textContent = S.P.map(x => x.toFixed(1)).join(', ') + ' mm';
+  const ns = S.n.sagittal, rotZ = Math.atan2(ns[1], ns[0]) * 180 / Math.PI, tilt = Math.asin(clamp(S.n.axial[2], -1, 1));
+  $('#angVal').textContent = `fırlanma ${rotZ.toFixed(1)}° · meyl ${(90 - tilt * 180 / Math.PI).toFixed(1)}°`;
+  $('#tC').textContent = Math.round(S.wc); $('#tW').textContent = Math.round(S.ww);
+  $('#rC').value = S.wc; $('#rW').value = S.ww;
+}
+
+/* ---------------- state changes ---------------- */
+function setP(p, except) {
+  S.P = p;
+  if (S.cs && except && except !== 'sagittal') {
+    csSnap(p);
+    for (const n of NAMES) { projectCenter(VIEWS[n]); VIEWS[n].needSample = true; }
+    PV.needDraw = true; schedule(); return;
+  }
+  for (const n of NAMES) {
+    const v = VIEWS[n];
+    if (n === except) { v.needDraw = true; continue; }
+    const before = v.C.slice(); projectCenter(v);
+    if (len(sub(before, v.C)) > 1e-6) v.needSample = true; else v.needDraw = true;
+  }
+  PV.needDraw = true; schedule();
+}
+function stepSlice(v, d) {
+  if (v.name === 'sagittal' && csStep(d)) return;
+  const n = S.n[v.name];
+  const step = Math.abs(n[0]) * S.sx + Math.abs(n[1]) * S.sy + Math.abs(n[2]) * S.sz;
+  const np = add(S.P, mul(n, d * step));
+  // keep inside volume
+  const lo = [0, 0, 0], hi = [(S.nx - 1) * S.sx, (S.ny - 1) * S.sy, (S.nz - 1) * S.sz];
+  if (np.some((x, i) => x < lo[i] - step || x > hi[i] + step)) return;
+  S.P = np; projectCenter(v); v.needSample = true;
+  for (const o of NAMES) if (o !== v.name) VIEWS[o].needDraw = true;
+  schedule();
+}
+function setWL(c, w) { S.wc = c; S.ww = Math.max(1, w); buildLut(); remapAll(); }
+function resetAll() {
+  S.cs = false;
+  S.n = { axial: [0, 0, 1], coronal: [0, 1, 0], sagittal: [1, 0, 0] };
+  S.P = [(S.nx - 1) * S.sx / 2, (S.ny - 1) * S.sy / 2, (S.nz - 1) * S.sz / 2];
+  for (const n of NAMES) { const v = VIEWS[n]; v.C = S.P.slice(); v.zoom = 1; v.panx = v.pany = 0; updateBase(v); }
+  PV.zoom = 1; PV.panx = PV.pany = 0;
+  markAll(true);
+}
+function onVolumeLoaded() {
+  for (const n of NAMES) { const v = VIEWS[n]; v.meas = []; v.pending = null; }
+  S.pano = { pts: [], drawing: false, data: null, thick: +$('#panoThick').value, offset: 0, sel: -1, hover: null, axis: [0, 0, 1] };
+  S.implants = []; S.sel = null; renderImplantList(); XR.sel = null; XR.drag = null; S.air = null; xrClose();
+  setPanoDrawing(false); showTab('info');
+}
+
+/* ---------------- implants ---------------- */
+const IM_COLORS = ['#ff8a5b', '#5bc0ff', '#ffd25b', '#b48cff', '#5bffb0', '#ff5b9d'];
+let imSeq = 0;
+function implantGeom(im) {
+  const a = im.axis, L = im.len, r = im.d / 2;
+  const head = add(im.c, mul(a, L / 2)), apex = add(im.c, mul(a, -L / 2));
+  const e1 = norm(cross(a, Math.abs(a[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0])), e2 = cross(a, e1);
+  const ring = (ctr, rad, n = 28) => { const out = []; for (let k = 0; k < n; k++) { const t = k / n * 2 * Math.PI; out.push(add(ctr, add(mul(e1, rad * Math.cos(t)), mul(e2, rad * Math.sin(t))))); } return out; };
+  const taper = Math.min(2.2, L * 0.25);
+  const radiusAt = h => h >= taper ? r : r * (0.55 + 0.45 * h / taper);      // h = distance from apex
+  const outline = [ring(head, r), ring(add(apex, mul(a, taper)), r), ring(apex, r * 0.55), ring(add(apex, mul(a, -0.3)), r * 0.3, 12)];
+  const threads = [];
+  for (let h = 0.6; h < L - 0.7; h += 0.8) threads.push(ring(add(apex, mul(a, h)), radiusAt(h) * 1.0, 20));
+  const platform = ring(head, r * 0.82, 20);
+  return { head, apex, outline, threads, platform, r };
+}
+function hull(pts) {
+  const p = pts.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  if (p.length < 3) return p;
+  const cr = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lo = [], up = [];
+  for (const q of p) { while (lo.length >= 2 && cr(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); }
+  for (let i = p.length - 1; i >= 0; i--) { const q = p[i]; while (up.length >= 2 && cr(up[up.length - 2], up[up.length - 1], q) <= 0) up.pop(); up.push(q); }
+  return lo.slice(0, -1).concat(up.slice(0, -1));
+}
+function inPoly(pt, poly) {
+  let c = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const a = poly[i], b = poly[j];
+    if ((a[1] > pt[1]) !== (b[1] > pt[1]) && pt[0] < (b[0] - a[0]) * (pt[1] - a[1]) / (b[1] - a[1]) + a[0]) c = !c;
+  }
+  return c;
+}
+function hexA(hex, a) { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; }
+function panoProject(w, g) {
+  const d = S.pano.data; if (!d) return null;
+  const axis = S.pano.axis, wf = sub(w, mul(axis, dot(sub(w, d.p0), axis)));
+  let best = 0, bd = Infinity;
+  for (let i = 0; i < d.W; i += 2) { const q = sub(wf, d.cols[i]); const dd = q[0] * q[0] + q[1] * q[1] + q[2] * q[2]; if (dd < bd) { bd = dd; best = i; } }
+  for (let i = Math.max(0, best - 2); i <= Math.min(d.W - 1, best + 2); i++) { const q = sub(wf, d.cols[i]); const dd = q[0] * q[0] + q[1] * q[1] + q[2] * q[2]; if (dd < bd) { bd = dd; best = i; } }
+  // sub-column precision along the tangent
+  const u = best + dot(sub(wf, d.cols[best]), d.tan[best]) / d.pm;
+  const r = (dot(sub(w, d.p0), d.down) - d.hmin) / d.pm;
+  return [g.ox + (u + 0.5) * g.f, g.oy + (r + 0.5) * g.f, Math.sqrt(bd)];
+}
+function drawImplants(v, ctx, proj, n) {
+  v.hulls = [];
+  for (const im of S.implants) {
+    const G = implantGeom(im);
+    let alpha = 1;
+    if (n) { // on an MPR plane: bright if the plane cuts the implant
+      const dh = dot(sub(G.head, S.P), n), da = dot(sub(G.apex, S.P), n);
+      const cuts = dh * da <= 0 || Math.min(Math.abs(dh), Math.abs(da)) <= G.r;
+      alpha = cuts ? 1 : 0.32;
+    } else { // panoramic: hide if far from the curve
+      const c = proj(im.c); if (!c || c[2] > S.pano.thick / 2 + 12) continue;
+    }
+    const P2 = pts => pts.map(p => proj(p)).filter(Boolean);
+    const outline = hull(P2(G.outline.flat()));
+    if (outline.length < 3) continue;
+    v.hulls.push({ im, poly: outline });
+    const sel = im === S.sel;
+    ctx.save(); ctx.globalAlpha = alpha;
+    // body
+    const h2 = proj(G.head), a2 = proj(G.apex);
+    const grad = ctx.createLinearGradient(h2[0], h2[1], a2[0], a2[1]);
+    grad.addColorStop(0, hexA(im.color, 0.55)); grad.addColorStop(1, hexA(im.color, 0.32));
+    ctx.beginPath(); outline.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath();
+    ctx.fillStyle = grad; ctx.fill();
+    ctx.lineWidth = (sel ? 2.2 : 1.4) * dpr(); ctx.strokeStyle = sel ? '#ffffff' : im.color; ctx.stroke();
+    // threads
+    ctx.strokeStyle = hexA('#ffffff', 0.35); ctx.lineWidth = 0.8 * dpr();
+    for (const t of G.threads) {
+      const q = P2(t); ctx.beginPath(); q.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); ctx.stroke();
+    }
+    // platform (connection)
+    const pf = P2(G.platform); ctx.strokeStyle = hexA('#ffffff', 0.8); ctx.lineWidth = 1 * dpr();
+    ctx.beginPath(); pf.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); ctx.stroke();
+    // prosthetic axis
+    const ext = proj(add(G.head, mul(im.axis, 9)));
+    ctx.setLineDash([5 * dpr(), 4 * dpr()]); ctx.strokeStyle = im.color; ctx.lineWidth = 1.3 * dpr();
+    ctx.beginPath(); ctx.moveTo(h2[0], h2[1]); ctx.lineTo(ext[0], ext[1]); ctx.stroke(); ctx.setLineDash([]);
+    // label
+    ctx.font = `700 ${11 * dpr()}px Inter, sans-serif`;
+    const label = `${im.tooth ? '#' + im.tooth + ' ' : ''}Ø${im.d}×${im.len}`;
+    const lx = ext[0] + 6 * dpr(), ly = ext[1];
+    const tw = ctx.measureText(label).width;
+    ctx.fillStyle = 'rgba(0,0,0,.65)'; ctx.fillRect(lx - 3 * dpr(), ly - 11 * dpr(), tw + 6 * dpr(), 15 * dpr());
+    ctx.fillStyle = im.color; ctx.fillText(label, lx, ly);
+    // rotation handle at the head (selected, MPR only)
+    if (sel && n) {
+      ctx.globalAlpha = 1; ctx.fillStyle = '#fff'; ctx.strokeStyle = im.color; ctx.lineWidth = 2 * dpr();
+      ctx.beginPath(); ctx.arc(ext[0], ext[1], 6 * dpr(), 0, 7); ctx.fill(); ctx.stroke();
+      v.handle = { im, pt: ext };
+    }
+    ctx.restore();
+  }
+  if (!S.sel || !n) v.handle = null;
+}
+function addImplant(center, axis) {
+  const im = { id: ++imSeq, c: center, axis: norm(axis), d: +$('#imD').value, len: +$('#imL').value,
+    color: IM_COLORS[(imSeq - 1) % IM_COLORS.length], tooth: '' };
+  S.implants.push(im); selectImplant(im);
+  return im;
+}
+function selectImplant(im) { if (im !== S.sel) { S.rotBase = null; const r = $('#imRot'); if (r) { r.value = 0; $('#imRotVal').textContent = '0°'; } } S.sel = im; renderImplantList(); redrawAll(); PV.needDraw = true; }
+function deleteImplant(im) {
+  S.implants = S.implants.filter(x => x !== im);
+  if (S.sel === im) S.sel = null;
+  renderImplantList(); redrawAll();
+}
+function implantInfo(im) {
+  const tilt = Math.acos(clamp(Math.abs(dot(im.axis, S.n.axial)), 0, 1)) * 180 / Math.PI;
+  const G = implantGeom(im);
+  const hv = valueAt(G.apex);
+  return `Aksial oxa nisbətən meyl: <b>${tilt.toFixed(1)}°</b><br>Apeksdə sıxlıq: <b>${hv === null ? '—' : hv}</b>`;
+}
+function setSelNum(sel, num) { for (const o of sel.options) if (+o.value === num) { sel.value = o.value; return; } }
+function renderImplantList() {
+  const box = $('#imList'); box.innerHTML = '';
+  S.implants.forEach((im, i) => {
+    const d = document.createElement('div');
+    d.className = 'imitem' + (im === S.sel ? ' sel' : '');
+    d.innerHTML = `<i style="background:${im.color}"></i><b>${im.tooth ? '#' + esc(im.tooth) : 'İmplant ' + (i + 1)}</b><span>Ø${im.d} × ${im.len}</span>`;
+    d.onclick = () => { selectImplant(im); alignToImplant(im, false); };
+    box.appendChild(d);
+  });
+  const act = $('#imActions');
+  act.classList.toggle('show', !!S.sel);
+  if (S.sel) {
+    $('#imTooth').value = S.sel.tooth;
+    setSelNum($('#imD'), S.sel.d); setSelNum($('#imL'), S.sel.len);
+    $('#imInfo').innerHTML = implantInfo(S.sel);
+  }
+}
+function rotateAroundImplant(im, deg) {
+  const a = im.axis;
+  // rotation is relative to the slice orientation at the moment rotation started
+  if (!S.rotBase || S.rotBase.im !== im || S.rotBase.axis !== a) {
+    let r = sub(S.n.sagittal, mul(a, dot(S.n.sagittal, a)));
+    if (len(r) < 0.2) r = sub([1, 0, 0], mul(a, a[0]));
+    if (len(r) < 0.2) r = sub([0, 1, 0], mul(a, a[1]));
+    S.rotBase = { im, axis: a, r: norm(r), deg0: deg };
+  }
+  const r0 = norm(rot(S.rotBase.r, a, -S.rotBase.deg0 * Math.PI / 180));
+  S.cs = false;
+  S.n.axial = a.slice();
+  S.n.sagittal = norm(rot(r0, a, deg * Math.PI / 180));
+  S.n.coronal = norm(cross(S.n.axial, S.n.sagittal));
+  S.P = im.c.slice();
+  for (const n of NAMES) { projectCenter(VIEWS[n]); VIEWS[n].needSample = true; }
+  PV.needDraw = true; schedule();
+}
+function alignToImplant(im, rotate) {
+  if (rotate) { S.cs = false; S.rotBase = null; $('#imRot').value = 0; $('#imRotVal').textContent = '0°'; }
+  if (rotate) {
+    const a = im.axis;
+    let s = sub(S.n.sagittal, mul(a, dot(S.n.sagittal, a)));
+    if (len(s) < 1e-3) s = sub([1, 0, 0], mul(a, a[0]));
+    S.n.axial = a.slice(); S.n.sagittal = norm(s); S.n.coronal = norm(cross(S.n.axial, S.n.sagittal));
+  }
+  S.P = im.c.slice();
+  for (const n of NAMES) { projectCenter(VIEWS[n]); VIEWS[n].needSample = true; }
+  PV.needDraw = true; schedule();
+}
+
+/* ---------------- interaction ---------------- */
+function hint(v, txt) { v.hint.textContent = txt || ''; v.hint.style.display = txt ? 'block' : 'none'; }
+function setTool(t) {
+  if ((S.tool === 'implant' || S.tool === 'xray') && t !== S.tool) NAMES.forEach(n => hint(VIEWS[n], ''));
+  S.tool = t;
+  document.querySelectorAll('[data-tool]').forEach(b => b.classList.toggle('on', b.dataset.tool === t));
+  $('#btnAddImplant').classList.toggle('draw', t === 'implant');
+  document.body.className = 'tool-' + t;
+  for (const n of NAMES) { VIEWS[n].pending = null; VIEWS[n].needDraw = true; }
+  if (t === 'implant') NAMES.forEach(n => hint(VIEWS[n], 'İmplantın mərkəzinə klikləyin · Esc — ləğv'));
+  if (t === 'xray') NAMES.forEach(n => hint(VIEWS[n], 'Sensorun mərkəzinə klikləyin və ya sahəni çəkin · Esc — ləğv'));
+  if (typeof onToolChosen === 'function') onToolChosen(t);
+  $('#btnXray').classList.toggle('draw', t === 'xray');
+  schedule();
+}
+function setActive(name) {
+  S.active = name;
+  for (const v of [...NAMES.map(n => VIEWS[n]), PV]) v.el.classList.toggle('active', v.name === name);
+}
+function setPanoDrawing(on) {
+  S.pano.drawing = on;
+  $('#panoDrawRow').style.display = on ? 'flex' : 'none';
+  $('#panoDelete').style.display = !on && S.pano.data ? '' : 'none';
+  const b = $('#btnPano');
+  b.classList.toggle('draw', on);
+  b.textContent = on ? '✓ Bitir' : (S.pano.data ? '〰 Yenidən çək' : '〰 Panoramik çək');
+  hint(VIEWS.axial, on ? `Diş qövsü boyunca nöqtələr qoyun (${S.pano.pts.length}) · iki dəfə klik / Enter — bitir · Esc — ləğv` : '');
+  VIEWS.axial.needDraw = true; schedule();
+}
+function cancelPano() {
+  // leave drawing mode and restore the previous curve (if there was one)
+  const bk = S.pano.backup;
+  if (bk) { Object.assign(S.pano, bk); PV.raw = bk.data ? bk.data.raw : null; PV.W = bk.data ? bk.data.W : 0; PV.H = bk.data ? bk.data.H : 0; PV.needMap = true; }
+  else { S.pano.pts = []; S.pano.data = null; }
+  S.pano.backup = null; S.pano.hover = null;
+  setPanoDrawing(false); redrawAll(); PV.needDraw = true; schedule();
+}
+function deletePano() {
+  Object.assign(S.pano, { pts: [], data: null, sel: -1, offset: 0, hover: null, backup: null });
+  S.cs = false; PV.raw = null; PV.W = 0;
+  setPanoDrawing(false); redrawAll(); PV.needMap = true; schedule();
+}
+function finishPano() {
+  if (S.pano.pts.length < 3) { if (!S.pano.pts.length) { cancelPano(); return; } hint(VIEWS.axial, `Ən azı 3 nöqtə lazımdır (${S.pano.pts.length}) · ✕ Ləğv et — imtina`); return; }
+  S.pano.backup = null;
+  S.pano.axis = S.n.axial.slice();
+  setPanoDrawing(false);
+  panoDirty = true; showTab('pano'); PV.zoom = 1; PV.panx = PV.pany = 0;
+  VIEWS.axial.needDraw = true;
+  requestAnimationFrame(() => { if (S.pano.data) startCs(); }); // linked cross-section
+  schedule();
+}
+function showTab(t) {
+  $('#tabPano').classList.toggle('on', t === 'pano'); $('#tabInfo').classList.toggle('on', t === 'info');
+  PV.el.style.display = t === 'pano' ? '' : 'none'; $('#panel').style.display = t === 'info' ? '' : 'none';
+  PV.needMap = true; schedule();
+}
+$('#tabPano').onclick = () => showTab('pano');
+$('#tabInfo').onclick = () => showTab('info');
+function zoomView(v, k) {
+  v.zoom = clamp(v.zoom * k, 0.5, 25);
+  if (!v.isPano) v.needSample = true;
+  schedule();
+}
+function evXY(c, e) { const r = c.getBoundingClientRect(); return [(e.clientX - r.left) * dpr(), (e.clientY - r.top) * dpr()]; }
+
+for (const n of NAMES) {
+  const v = VIEWS[n], c = v.canvas;
+  let drag = null;
+  c.addEventListener('contextmenu', e => e.preventDefault());
+  c.addEventListener('pointerdown', e => {
+    if (!S.vol || v.gesture) return;
+    setActive(n);
+    c.setPointerCapture(e.pointerId);
+    const w = screenToWorld(v, e);
+    const [X, Y] = evXY(c, e);
+    const tool = S.tool;
+    if (n === 'axial' && S.pano.drawing) {
+      if (e.button === 2) { finishPano(); return; }
+      if (e.button === 0 && e.detail < 2) { S.pano.pts.push(w); setPanoDrawing(true); }
+      return;
+    }
+    const startRot = () => {
+      S.cs = false;
+      const Ps = worldToScreen(v, S.P);
+      drag = { t: 'rot', a0: Math.atan2(Y - Ps[1], X - Ps[0]), Ps, n0: { ...S.n } };
+      v.el.classList.add('rotating');
+    };
+    if (e.button === 2) startRot();
+    else if (e.button === 1 || (e.button === 0 && (e.altKey || tool === 'pan'))) drag = { t: 'pan', x: e.clientX, y: e.clientY, px: v.panx, py: v.pany };
+    else if (e.button === 0 && (e.shiftKey || tool === 'wl')) drag = { t: 'wl', x: e.clientX, y: e.clientY, c: S.wc, w: S.ww };
+    else if (e.button === 0 && tool === 'zoom') drag = { t: 'zoom', y: e.clientY, z0: v.zoom };
+    else if (e.button === 0 && tool === 'rot') startRot();
+    else if (e.button === 0 && tool === 'slice') drag = { t: 'slice', y: e.clientY };
+    else if (e.button === 0 && tool === 'xray') { XR.drag = { view: n, a: w, b: w }; drag = { t: 'xray' }; v.needDraw = true; schedule(); }
+    else if (e.button === 0 && tool === 'measure') {
+      if (!v.pending) v.pending = w; else { v.meas.push({ a: v.pending, b: w }); v.pending = null; }
+      v.needDraw = true; schedule();
+    } else if (e.button === 0 && tool === 'implant') {
+      const B = basis(v);
+      const axis = n === 'axial' ? S.n.axial : mul(B.V, -1); // crown up on screen
+      setTool('cross');
+      const im = addImplant(w, axis);
+      setP(im.c.slice(), n);
+    } else if (e.button === 0) {
+      // implant rotation handle / implant body / pano control point / crosshair
+      if (v.handle && Math.hypot(v.handle.pt[0] - X, v.handle.pt[1] - Y) < 10 * dpr()) { drag = { t: 'imrot', im: v.handle.im }; return; }
+      const hit = (v.hulls || []).slice().reverse().find(h => inPoly([X, Y], h.poly));
+      if (hit) { selectImplant(hit.im); drag = { t: 'immove', im: hit.im, w0: w, c0: hit.im.c.slice() }; return; }
+      if (n === 'axial' && S.pano.pts.length) {
+        const B = basis(v);
+        const idx = S.pano.pts.findIndex(p => { const s = worldToScreen(v, p, B); return Math.hypot(s[0] - X, s[1] - Y) < 10 * dpr(); });
+        if (idx >= 0) { drag = { t: 'pt', idx }; return; }
+      }
+      if (S.sel) selectImplant(null);
+      drag = { t: 'cross' }; setP(w, n);
+    }
+    e.preventDefault();
+  });
+  c.addEventListener('pointermove', e => {
+    if (!S.vol) return;
+    if (v.gesture) { drag = null; return; }
+    const w = screenToWorld(v, e);
+    if (n === 'axial' && S.pano.drawing) { S.pano.hover = w; v.needDraw = true; schedule(); return; }
+    if (S.tool === 'measure' && v.pending) { v.hover = w; v.needDraw = true; schedule(); }
+    if (!drag) return;
+    if (drag.t === 'slice') { const st = 7; while (Math.abs(e.clientY - drag.y) >= st) { const d = e.clientY > drag.y ? 1 : -1; stepSlice(v, d); drag.y += d * st; } }
+    else if (drag.t === 'xray') { XR.drag.b = w; v.needDraw = true; schedule(); }
+    else if (drag.t === 'cross') setP(w, n);
+    else if (drag.t === 'pt') { S.pano.pts[drag.idx] = w; panoDirty = true; v.needDraw = true; PV.needDraw = true; schedule(); }
+    else if (drag.t === 'immove') {
+      drag.im.c = add(drag.c0, sub(w, drag.w0));
+      redrawAll(); PV.needDraw = true; $('#imInfo').innerHTML = implantInfo(drag.im);
+    } else if (drag.t === 'imrot') {
+      const im = drag.im, nrm = S.n[n];
+      const d = sub(w, im.c), inPlane = sub(d, mul(nrm, dot(d, nrm)));
+      const along = dot(im.axis, nrm) * (im.len / 2 + 9);
+      if (len(inPlane) > 0.5) im.axis = norm(add(inPlane, mul(nrm, along)));
+      redrawAll(); PV.needDraw = true; $('#imInfo').innerHTML = implantInfo(im);
+    } else if (drag.t === 'wl') {
+      const k = Math.max(1, drag.w / 250);
+      setWL(drag.c - (e.clientY - drag.y) * k, drag.w + (e.clientX - drag.x) * k);
+      $('#preset').selectedIndex = -1;
+    } else if (drag.t === 'pan') { v.panx = drag.px + e.clientX - drag.x; v.pany = drag.py + e.clientY - drag.y; v.needSample = true; schedule(); }
+    else if (drag.t === 'zoom') { v.zoom = clamp(drag.z0 * Math.exp((drag.y - e.clientY) * 0.01), 0.5, 25); v.needSample = true; schedule(); }
+    else if (drag.t === 'rot') {
+      const [X, Y] = evXY(c, e);
+      const B = basis(v), sgn = Math.sign(dot(cross(B.n, B.U), B.V)) || 1;
+      let da = (Math.atan2(Y - drag.Ps[1], X - drag.Ps[0]) - drag.a0) * sgn;
+      if (e.shiftKey) da = Math.round(da / (Math.PI / 36)) * (Math.PI / 36);
+      const axis = S.n[n];
+      for (const o of NAMES) {
+        if (o === n) continue;
+        S.n[o] = norm(rot(drag.n0[o], axis, da));
+        projectCenter(VIEWS[o]); VIEWS[o].needSample = true;
+      }
+      v.needDraw = true; schedule();
+    }
+  });
+  const end = () => {
+    if (drag && (drag.t === 'imrot' || drag.t === 'immove')) renderImplantList();
+    if (drag && drag.t === 'xray') xrFinishSelection();
+    drag = null; v.el.classList.remove('rotating');
+  };
+  c.addEventListener('pointerup', end); c.addEventListener('pointercancel', end);
+  c.addEventListener('wheel', e => {
+    if (!S.vol) return;
+    e.preventDefault(); setActive(n);
+    if (e.ctrlKey || e.metaKey) zoomView(v, e.deltaY < 0 ? 1.15 : 1 / 1.15);
+    else stepSlice(v, e.deltaY > 0 ? 1 : -1);
+  }, { passive: false });
+  c.addEventListener('dblclick', () => {
+    if (n === 'axial' && S.pano.drawing) { finishPano(); return; }
+    v.zoom = 1; v.panx = v.pany = 0; v.needSample = true; schedule();
+  });
+}
+
+// panoramic view interaction
+{
+  const c = PV.canvas; let drag = null;
+  c.addEventListener('contextmenu', e => e.preventDefault());
+  c.addEventListener('pointerdown', e => {
+    if (!S.pano.data || PV.gesture) return;
+    setActive('pano');
+    c.setPointerCapture(e.pointerId);
+    const [X, Y] = evXY(c, e), tool = S.tool;
+    if (e.button === 1 || (e.button === 0 && (e.altKey || tool === 'pan'))) drag = { t: 'pan', x: e.clientX, y: e.clientY, px: PV.panx, py: PV.pany };
+    else if (e.button === 0 && (e.shiftKey || tool === 'wl')) drag = { t: 'wl', x: e.clientX, y: e.clientY, c: S.wc, w: S.ww };
+    else if (e.button === 0 && tool === 'zoom') drag = { t: 'zoom', y: e.clientY, z0: PV.zoom };
+    else if (e.button === 0) {
+      const hit = (PV.hulls || []).slice().reverse().find(h => inPoly([X, Y], h.poly));
+      if (hit) { selectImplant(hit.im); alignToImplant(hit.im, false); return; }
+      drag = { t: 'nav' }; panoNavigate(...panoFromEvent(e));
+    }
+    e.preventDefault();
+  });
+  c.addEventListener('pointermove', e => {
+    if (PV.gesture) { drag = null; return; }
+    if (!drag) return;
+    if (drag.t === 'nav') panoNavigate(...panoFromEvent(e));
+    else if (drag.t === 'wl') { const k = Math.max(1, drag.w / 250); setWL(drag.c - (e.clientY - drag.y) * k, drag.w + (e.clientX - drag.x) * k); $('#preset').selectedIndex = -1; }
+    else if (drag.t === 'pan') { PV.panx = drag.px + e.clientX - drag.x; PV.pany = drag.py + e.clientY - drag.y; schedule(); }
+    else if (drag.t === 'zoom') { PV.zoom = clamp(drag.z0 * Math.exp((drag.y - e.clientY) * 0.01), 0.5, 20); schedule(); }
+  });
+  c.addEventListener('pointerup', () => drag = null);
+  c.addEventListener('wheel', e => {
+    if (!S.pano.data) return;
+    e.preventDefault(); setActive('pano');
+    if (e.ctrlKey || e.metaKey) zoomView(PV, e.deltaY < 0 ? 1.15 : 1 / 1.15);
+    else { S.pano.offset = Math.round((S.pano.offset + (e.deltaY < 0 ? 0.5 : -0.5)) * 10) / 10; panoDirty = true; VIEWS.axial.needDraw = true; }
+    schedule();
+  }, { passive: false });
+  c.addEventListener('dblclick', () => { PV.zoom = 1; PV.panx = PV.pany = 0; schedule(); });
+}
+
+window.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'Escape') {
+    if (S.pano.drawing) cancelPano();
+    if (S.tool === 'implant' || S.tool === 'xray') setTool('cross');
+    if (XR.open) xrClose();
+    for (const n of NAMES) { VIEWS[n].pending = null; VIEWS[n].needDraw = true; } schedule();
+  }
+  if (e.key === 'Enter' && S.pano.drawing) finishPano();
+  if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && S.cs) { csStep(e.key === 'ArrowRight' ? 1 : -1); e.preventDefault(); }
+  if (e.key === 'Backspace' || e.key === 'Delete') {
+    if (S.pano.drawing && S.pano.pts.length) { S.pano.pts.pop(); setPanoDrawing(true); }
+    else if (S.sel) deleteImplant(S.sel);
+  }
+});
+
+/* ---------------- tool panel ---------------- */
+document.querySelectorAll('[data-tool]').forEach(b => b.onclick = () => setTool(b.dataset.tool));
+$('#btnZoomIn').onclick = () => zoomView(S.active === 'pano' ? PV : VIEWS[S.active], 1.25);
+$('#btnZoomOut').onclick = () => zoomView(S.active === 'pano' ? PV : VIEWS[S.active], 0.8);
+$('#btnFit').onclick = () => {
+  for (const v of [...NAMES.map(n => VIEWS[n]), PV]) { v.zoom = 1; v.panx = v.pany = 0; if (!v.isPano) v.needSample = true; }
+  schedule();
+};
+$('#btnLines').onclick = e => {
+  S.showLines = !S.showLines;
+  e.currentTarget.classList.toggle('on', !S.showLines);
+  e.currentTarget.textContent = S.showLines ? '👁 Kəsik xətlərini gizlət' : '👁 Kəsik xətlərini göstər';
+  redrawAll(); PV.needDraw = true; schedule();
+};
+$('#btnPano').onclick = () => {
+  if (!S.vol) return;
+  if (S.pano.drawing) { if (S.pano.pts.length < 3) cancelPano(); else finishPano(); return; }
+  S.pano.backup = { pts: S.pano.pts, data: S.pano.data, sel: S.pano.sel, offset: S.pano.offset, axis: S.pano.axis };
+  S.pano.pts = []; S.pano.data = null; S.pano.sel = -1; S.pano.offset = 0; PV.raw = null; PV.W = 0;
+  setTool('cross');
+  setPanoDrawing(true); showTab('pano');
+};
+$('#panoThick').onchange = e => { S.pano.thick = +e.target.value; if (S.pano.data) { panoDirty = true; VIEWS.axial.needDraw = true; schedule(); } };
+$('#preset').onchange = e => {
+  const val = e.target.value;
+  if (val === 'auto' && S.autoWL) setWL(...S.autoWL);
+  else if (val === 'file' && S.fileWL) setWL(...S.fileWL);
+  else if (val.includes(',')) setWL(...val.split(',').map(Number));
+};
+$('#btnInv').onclick = e => { S.invert = !S.invert; e.currentTarget.classList.toggle('on', S.invert); buildLut(); remapAll(); };
+$('#btnClear').onclick = () => { for (const n of NAMES) { const v = VIEWS[n]; v.meas = []; v.pending = null; v.needDraw = true; } schedule(); };
+$('#btnReset').onclick = () => { if (S.vol) resetAll(); };
+$('#rC').oninput = e => setWL(+e.target.value, S.ww);
+$('#rW').oninput = e => setWL(S.wc, +e.target.value);
+
+// implant panel
+$('#btnAddImplant').onclick = () => {
+  if (!S.vol) return; if (S.pano.drawing) setPanoDrawing(false);
+  if (S.tool === 'implant') { setTool('cross'); return; }
+  selectImplant(null); setTool('implant');
+};
+$('#imD').onchange = e => { if (S.sel) { S.sel.d = +e.target.value; renderImplantList(); redrawAll(); PV.needDraw = true; } };
+$('#imL').onchange = e => { if (S.sel) { S.sel.len = +e.target.value; renderImplantList(); redrawAll(); PV.needDraw = true; } };
+$('#imTooth').oninput = e => { if (S.sel) { S.sel.tooth = e.target.value.trim(); redrawAll(); PV.needDraw = true; const pos = e.target.selectionStart; renderImplantList(); e.target.focus(); e.target.setSelectionRange(pos, pos); } };
+$('#imFlip').onclick = () => { if (S.sel) { S.sel.axis = mul(S.sel.axis, -1); S.rotBase = null; renderImplantList(); redrawAll(); PV.needDraw = true; } };
+$('#imDel').onclick = () => { if (S.sel) deleteImplant(S.sel); };
+$('#imAlign').onclick = () => { if (S.sel) alignToImplant(S.sel, true); };
+setActive('axial');
+
+
+// cross-section stepping along the curve
+$('#csPrev').onclick = () => { if (!S.cs) startCs(); else csStep(-1); };
+$('#csNext').onclick = () => { if (!S.cs) startCs(); else csStep(1); };
+$('#csStepSel').onchange = e => { S.csStep = +e.target.value; };
+function startCs() {
+  const d = S.pano.data; if (!d) { hint(VIEWS.axial, 'Əvvəlcə panoramik qövsü çəkin'); setTimeout(() => hint(VIEWS.axial, ''), 2000); return; }
+  const r = clamp((dot(sub(S.P, d.p0), d.down) - d.hmin) / d.pm, 0, d.H - 1);
+  panoNavigate(S.pano.sel >= 0 ? S.pano.sel : Math.round(d.W / 2), r);
+}
+// rotate the slices around the selected implant
+$('#imRot').oninput = e => { if (!S.sel) return; $('#imRotVal').textContent = e.target.value + '°'; rotateAroundImplant(S.sel, +e.target.value); };
+$('#imRot').addEventListener('wheel', e => { e.preventDefault(); const el = e.target; el.value = (+el.value + (e.deltaY < 0 ? 5 : -5) + 360) % 360; el.oninput({ target: el }); }, { passive: false });
+
+$('#panoCancel').onclick = cancelPano;
+$('#panoUndo').onclick = () => { if (S.pano.drawing && S.pano.pts.length) { S.pano.pts.pop(); setPanoDrawing(true); } };
+$('#panoDelete').onclick = deletePano;
+/* ---------------- 2D X-ray simulator (digitally reconstructed radiograph) ---------------- */
+const XR = { sel: null, drag: null, open: false, data: null, job: 0, timer: 0 };
+
+function xrRect(sel) {
+  // rectangle on the source view's plane: origin (top-left), U/V axes, size in mm
+  const v = VIEWS[sel.view], B = basis(v);
+  const d = sub(sel.b, sel.a), du = dot(d, B.U), dv = dot(d, B.V);
+  const o = add(add(sel.a, mul(B.U, Math.min(0, du))), mul(B.V, Math.min(0, dv)));
+  return { o, U: B.U, V: B.V, n: B.n, w: Math.abs(du), h: Math.abs(dv) };
+}
+function drawXrSel(v, ctx, B) {
+  const sel = XR.drag && XR.drag.view === v.name ? xrSized(XR.drag) : (XR.open && XR.sel && XR.sel.view === v.name ? XR.sel : null);
+  if (!sel) return;
+  const R = xrRect(sel);
+  const pts = [R.o, add(R.o, mul(R.U, R.w)), add(add(R.o, mul(R.U, R.w)), mul(R.V, R.h)), add(R.o, mul(R.V, R.h))].map(p => worldToScreen(v, p, B));
+  ctx.save();
+  ctx.strokeStyle = '#7CFFB2'; ctx.lineWidth = 1.6 * dpr(); ctx.setLineDash([6 * dpr(), 4 * dpr()]);
+  ctx.fillStyle = 'rgba(124,255,178,.08)';
+  ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(...p) : ctx.moveTo(...p)); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.setLineDash([]); ctx.font = `700 ${11 * dpr()}px Inter, sans-serif`; ctx.fillStyle = '#7CFFB2';
+  ctx.fillText(`☢ ${R.w.toFixed(0)}×${R.h.toFixed(0)} mm`, pts[0][0] + 4 * dpr(), pts[0][1] - 6 * dpr());
+  ctx.restore();
+}
+function airLevel() {
+  if (S.air != null) return S.air;
+  const vol = S.vol, step = Math.max(1, Math.floor(vol.length / 200000)), a = [];
+  for (let i = 0; i < vol.length; i += step) a.push(vol[i]);
+  a.sort((x, y) => x - y);
+  S.air = a[Math.floor(a.length * 0.01)];
+  return S.air;
+}
+const SENSOR = { s1: [20, 30], s2: [26, 36] };
+function xrSized(sel) {
+  const sz = SENSOR[$('#xrSize').value]; if (!sz) return sel;
+  const B = basis(VIEWS[sel.view]), c = mul(add(sel.a, sel.b), 0.5);
+  const a = sub(sub(c, mul(B.U, sz[0] / 2)), mul(B.V, sz[1] / 2)), b = add(add(c, mul(B.U, sz[0] / 2)), mul(B.V, sz[1] / 2));
+  return { view: sel.view, a, b };
+}
+function xrFinishSelection() {
+  let sel = XR.drag; XR.drag = null;
+  setTool('cross');
+  if (!sel) return;
+  sel = xrSized(sel);
+  const R = xrRect(sel);
+  if (R.w < 3 || R.h < 3) { redrawAll(); return; }
+  XR.sel = sel;
+  xrOpen(); xrCompute();
+}
+function xrOpen() {
+  XR.open = true; $('#xr').classList.add('show');
+  const names = { axial: 'aksial', coronal: 'koronal', sagittal: S.cs ? 'kəsik' : 'sagittal' };
+  $('#xrSrc').textContent = `istinad: ${names[XR.sel.view]} kəsik`;
+  redrawAll();
+}
+function xrClose() { XR.open = false; XR.job++; const el = $('#xr'); if (el) el.classList.remove('show'); redrawAll(); }
+
+async function xrCompute() {
+  if (!XR.sel || !S.vol) return;
+  const job = ++XR.job;
+  $('#xrBusy').style.display = 'flex'; $('#xrBusy').textContent = 'Hesablanır…';
+  await new Promise(r => setTimeout(r, 15));
+  const R = xrRect(XR.sel);
+  const pm = Math.max(vmin() * 0.25, Math.max(R.w, R.h) / 1000);
+  const W = Math.max(8, Math.round(R.w / pm)), H = Math.max(8, Math.round(R.h / pm));
+  let T = +$('#xrThick').value;
+  if (!T) T = Math.hypot(S.nx * S.sx, S.ny * S.sy, S.nz * S.sz);
+  const va = +$('#xrVa').value * Math.PI / 180, ha = +$('#xrHa').value * Math.PI / 180;
+  const d = norm(rot(rot(R.n, R.U, va), R.V, ha));        // beam direction (tube angulation)
+  const cosn = Math.max(0.3, Math.abs(dot(d, R.n)));
+  const step = vmin() * 0.6, len_ = T / cosn, nT = Math.max(1, Math.ceil(len_ / step)), t0 = -len_ / 2;
+  const air = airLevel();
+  // lower kV → photoelectric effect dominates → dense tissue (dentin, enamel) separates more from bone
+  const kv = +$('#xrKv').value, pw = 1 + Math.max(0, (90 - kv)) / 36;
+  const acc = new Float32Array(W * H), tmp = new Float32Array(W);
+  const du = toVox(mul(R.U, pm));
+  let t = performance.now();
+  for (let r = 0; r < H; r++) {
+    const rowO = add(add(R.o, mul(R.V, (r + 0.5) * pm)), mul(R.U, 0.5 * pm));
+    for (let k = 0; k < nT; k++) {
+      const s = toVox(add(rowO, mul(d, t0 + (k + 0.5) * step)));
+      sampleRow(tmp, 0, W, s[0], s[1], s[2], du[0], du[1], du[2], false);
+      const base = r * W;
+      // photoelectric-like weighting: dense tissue attenuates disproportionately at dental kV
+      for (let j = 0; j < W; j++) { const x = tmp[j] - air; if (x > 0) acc[base + j] += Math.pow(x * 0.001, pw) * 1000; }
+    }
+    if (performance.now() - t > 40) {
+      $('#xrBusy').textContent = `Hesablanır… ${Math.round(r / H * 100)}%`;
+      await new Promise(res => setTimeout(res, 0)); t = performance.now();
+      if (job !== XR.job) return;
+    }
+  }
+  for (let i = 0; i < acc.length; i++) acc[i] *= step / 1000;
+  // auto exposure: brightest structures (enamel / implant) reach ~90% density
+  const sm = []; const st = Math.max(1, Math.floor(acc.length / 50000));
+  for (let i = 0; i < acc.length; i += st) sm.push(acc[i]);
+  sm.sort((a, b) => a - b);
+  // digital sensors display a log-processed image: brightness ~ total attenuation along the ray
+  const A0 = sm[Math.floor(sm.length * 0.005)] || 0, A1 = sm[Math.floor(sm.length * 0.997)] || 1;
+  XR.data = { W, H, pm, acc, A0, A1: Math.max(A1, A0 + 1e-6), mm: [R.w, R.h] };
+  // burn implants into the film (metal = very high attenuation)
+  xrBurnImplants(R, d, W, H, pm);
+  $('#xrBusy').style.display = 'none';
+  $('#xrNote').innerHTML = `${R.w.toFixed(1)} × ${R.h.toFixed(1)} mm · ${W}×${H} px<br>Şüa kəsiyə ${(Math.acos(cosn) * 180 / Math.PI).toFixed(0)}° bucaq altında, ${T.toFixed(0)} mm dərinlik.`;
+  xrTone();
+}
+function xrBurnImplants(R, d, W, H, pm) {
+  if (!S.implants.length) return;
+  const acc = XR.data.acc, metal = (XR.data.A1 - XR.data.A0) * 0.4;  // per mm of titanium: ~3 mm saturates
+  // ray-cast each detector pixel against each implant cylinder (analytic chord length)
+  for (const im of S.implants) {
+    const r = im.d / 2, a = im.axis, c = im.c, hl = im.len / 2;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const p = add(add(R.o, mul(R.U, (x + 0.5) * pm)), mul(R.V, (y + 0.5) * pm));
+      // line p + t d ; distance to axis line
+      const w0 = sub(p, c), dd = sub(d, mul(a, dot(d, a))), ww = sub(w0, mul(a, dot(w0, a)));
+      const A = dot(dd, dd), Bq = 2 * dot(dd, ww), C = dot(ww, ww) - r * r;
+      if (A < 1e-9) continue;
+      const disc = Bq * Bq - 4 * A * C; if (disc <= 0) continue;
+      const sq = Math.sqrt(disc); let t1 = (-Bq - sq) / (2 * A), t2 = (-Bq + sq) / (2 * A);
+      // clip to the implant length
+      const s1 = dot(add(w0, mul(d, t1)), a), s2 = dot(add(w0, mul(d, t2)), a);
+      const da = dot(d, a);
+      if (Math.abs(da) > 1e-9) {
+        const ta = (-hl - dot(w0, a)) / da, tb = (hl - dot(w0, a)) / da;
+        const lo = Math.max(t1, Math.min(ta, tb)), hi = Math.min(t2, Math.max(ta, tb));
+        if (hi <= lo) continue; t1 = lo; t2 = hi;
+      } else if (Math.abs(s1) > hl) continue;
+      acc[y * W + x] += (t2 - t1) * metal;
+    }
+  }
+}
+function xrTone() {
+  const D = XR.data; if (!D) return;
+  const { W, H, acc } = D;
+  const ex = +$('#xrExp').value / 100, con = +$('#xrCon').value / 100;
+  const noise = $('#xrNoise').checked, shape = $('#xrShape').value, sensor = shape !== 'none', neg = $('#xrInv').checked;
+  $('#xrExpV').textContent = $('#xrExp').value + '%'; $('#xrConV').textContent = con.toFixed(1);
+  $('#xrVaV').textContent = $('#xrVa').value + '°'; $('#xrHaV').textContent = $('#xrHa').value + '°';
+  // normalised attenuation 0..1 (exposure scales it: more exposure → darker soft tissue, like a real sensor)
+  let img = new Float32Array(W * H);
+  const span = (D.A1 - D.A0) * ex, a0 = D.A1 - span;
+  for (let i = 0; i < img.length; i++) img[i] = (acc[i] - a0) / span;
+  // detector MTF: light blur; then unsharp mask, as real intraoral sensors do
+  const blur = (src, passes) => {
+    const a = src.slice(), t2 = new Float32Array(W * H);
+    for (let pass = 0; pass < passes; pass++) {
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = y * W + x; t2[i] = (a[i - (x > 0)] + 2 * a[i] + a[i + (x < W - 1)]) / 4; }
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = y * W + x; a[i] = (t2[i - (y > 0) * W] + 2 * t2[i] + t2[i + (y < H - 1) * W]) / 4; }
+    }
+    return a;
+  };
+  const sharp = +$('#xrSh').value / 100;
+  $('#xrShV').textContent = sharp.toFixed(1);
+  if (sharp > 0) {
+    // the blur that matters comes from the CBCT voxel, so the kernels scale with voxel size in pixels
+    const rv = Math.max(1, vmin() / D.pm);
+    const nFine = Math.max(1, Math.round(0.72 * (0.6 * rv) ** 2));   // σ ≈ 0.6 voxel
+    const nMid = Math.max(nFine + 1, Math.round(0.72 * (2.0 * rv) ** 2)); // σ ≈ 2 voxels
+    const fine = blur(img, nFine), mid = blur(fine, nMid - nFine);
+    for (let i = 0; i < img.length; i++) img[i] = img[i] + sharp * (img[i] - fine[i]) + 0.35 * sharp * (fine[i] - mid[i]);
+  }
+  // local contrast (large-radius unsharp mask via summed-area tables) — brings out apices, PDL and lamina dura
+  const lc = +$('#xrLc').value / 100;
+  $('#xrLcV').textContent = lc.toFixed(1);
+  if (lc > 0) {
+    const R = Math.max(3, Math.round(1.8 / D.pm));               // ≈ 1.8 mm — trabecular scale
+    const box = (src) => {
+      const sat = new Float64Array((W + 1) * (H + 1));
+      for (let y = 0; y < H; y++) { let row = 0; for (let x = 0; x < W; x++) { row += src[y * W + x]; sat[(y + 1) * (W + 1) + x + 1] = sat[y * (W + 1) + x + 1] + row; } }
+      const out = new Float32Array(W * H);
+      for (let y = 0; y < H; y++) {
+        const y0 = Math.max(0, y - R), y1 = Math.min(H, y + R + 1);
+        for (let x = 0; x < W; x++) {
+          const x0 = Math.max(0, x - R), x1 = Math.min(W, x + R + 1);
+          out[y * W + x] = (sat[y1 * (W + 1) + x1] - sat[y0 * (W + 1) + x1] - sat[y1 * (W + 1) + x0] + sat[y0 * (W + 1) + x0]) / ((x1 - x0) * (y1 - y0));
+        }
+      }
+      return out;
+    };
+    const m = box(box(img));                                      // two box passes ≈ smooth local mean
+    for (let i = 0; i < img.length; i++) img[i] = m[i] + (img[i] - m[i]) * (1 + lc);
+  }
+  // film curve + noise + heel effect
+  let seed = 12345; const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+  const cv = $('#xrCanvas'); cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d'), id = ctx.createImageData(W, H), px = id.data;
+  const rad = Math.min(W, H) * 0.09, ch = Math.min(W, H) * 0.2;   // corner radius / chamfer size
+  const black = 0.2, gam = 1 / Math.max(0.3, con);
+  const flip = $('#xrFlip').value, fx = flip === 'h' || flip === 'r', fy = flip === 'v' || flip === 'r';
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x;
+    let g = img[(fy ? H - 1 - y : y) * W + (fx ? W - 1 - x : x)];
+    g = g < 0 ? 0 : g > 1 ? 1 : g;
+    g = black + (1 - black) * Math.pow(g, gam);                  // log-processed sensor display
+    if (noise) { const q = Math.sqrt(-2 * Math.log(rnd() + 1e-9)) * Math.cos(6.2832 * rnd()); g += q * 0.022 * (0.5 + 0.7 * (1 - g)); }
+    g *= 0.96 + 0.04 * (1 - y / H);                               // anode heel effect
+    if (neg) g = 1 - g;
+    let a = 255;
+    if (shape === 'round') {
+      const cx = x < rad ? rad - x : x > W - 1 - rad ? x - (W - 1 - rad) : 0;
+      const cy = y < rad ? rad - y : y > H - 1 - rad ? y - (H - 1 - rad) : 0;
+      if (cx && cy && cx * cx + cy * cy > rad * rad) a = 0;
+    } else if (shape === 'chamfer') { // 45° cut corners, like common CMOS sensors
+      const dx = Math.min(x, W - 1 - x), dy = Math.min(y, H - 1 - y);
+      if (dx + dy < ch) a = 0;
+    }
+    g = g < 0 ? 0 : g > 1 ? 1 : g;
+    const b = Math.round(g * 255);
+    px[i * 4] = b; px[i * 4 + 1] = b; px[i * 4 + 2] = Math.min(255, b + 3); px[i * 4 + 3] = a;
+  }
+  ctx.putImageData(id, 0, 0);
+  if (shape === 'round') { // orientation dot, as on some sensors
+    ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.beginPath(); ctx.arc(rad * 0.9, rad * 0.9, Math.max(2, W / 120), 0, 7); ctx.fill();
+  }
+  cv.style.borderRadius = shape === 'round' ? '14px' : '0';
+  const box = cv.parentElement.getBoundingClientRect();
+  const sc = Math.min((box.width - 20) / W, (box.height - 20) / H);
+  cv.style.width = Math.round(W * sc) + 'px'; cv.style.height = Math.round(H * sc) + 'px';
+}
+const xrRecompute = () => { clearTimeout(XR.timer); XR.timer = setTimeout(xrCompute, 250); };
+$('#btnXray').onclick = () => { if (!S.vol) return; if (S.pano.drawing) setPanoDrawing(false); setTool(S.tool === 'xray' ? 'cross' : 'xray'); };
+$('#xrClose').onclick = xrClose;
+['xrExp', 'xrCon', 'xrSh', 'xrLc'].forEach(id => $('#' + id).oninput = xrTone);
+$('#xrKv').oninput = () => { $('#xrKvV').textContent = $('#xrKv').value + ' kV'; xrRecompute(); };
+['xrShape', 'xrNoise', 'xrInv', 'xrFlip'].forEach(id => $('#' + id).onchange = xrTone);
+$('#xrSize').onchange = () => { if (XR.sel && XR.open) { XR.sel = xrSized(XR.sel); redrawAll(); xrRecompute(); } };
+['xrVa', 'xrHa'].forEach(id => $('#' + id).oninput = () => { $('#' + id + 'V').textContent = $('#' + id).value + '°'; xrRecompute(); });
+$('#xrThick').onchange = xrRecompute;
+$('#xrSave').onclick = () => {
+  const cv = $('#xrCanvas');
+  cv.toBlob(b => {
+    if (!b) return;
+    const a = document.createElement('a'); a.href = URL.createObjectURL(b);
+    a.download = `digipex-rentgen-${new Date().toISOString().slice(0, 10)}.png`;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  }, 'image/png');
+};
+// draggable window
+{
+  const head = $('#xrHead'), box = $('#xr'); let d = null;
+  head.addEventListener('pointerdown', e => { if (e.target.tagName === 'BUTTON') return; const r = box.getBoundingClientRect(), pr = box.parentElement.getBoundingClientRect(); d = { x: e.clientX, y: e.clientY, l: r.left - pr.left, t: r.top - pr.top }; head.setPointerCapture(e.pointerId); });
+  head.addEventListener('pointermove', e => { if (!d) return; box.style.left = (d.l + e.clientX - d.x) + 'px'; box.style.top = Math.max(0, d.t + e.clientY - d.y) + 'px'; box.style.right = 'auto'; });
+  head.addEventListener('pointerup', () => d = null);
+}
+
+
+$('#xrBig').onclick = () => { $('#xr').classList.toggle('big'); setTimeout(xrTone, 30); };
+$('#xrCanvas').addEventListener('dblclick', () => $('#xrBig').click());
+/* ---------------- phone / tablet ---------------- */
+const MQ = window.matchMedia('(max-width:800px), (pointer:coarse) and (max-width:1000px)');
+const isMobile = () => MQ.matches;
+let mView = 'axial';
+
+function setMobileView(name) {
+  mView = name;
+  document.querySelectorAll('#mtabs button').forEach(b => b.classList.toggle('on', b.dataset.mv === name));
+  const map = { axial: 'v-axial', coronal: 'v-coronal', sagittal: 'v-sagittal', pano: 'quad4', info: 'quad4' };
+  ['v-axial', 'v-coronal', 'v-sagittal', 'quad4'].forEach(id => document.getElementById(id).classList.toggle('mshow', map[name] === id));
+  if (name === 'pano' || name === 'info') { _showTab(name); setActive(name === 'pano' ? 'pano' : S.active); }
+  else setActive(name);
+  markAll(true);
+}
+document.querySelectorAll('#mtabs button').forEach(b => b.onclick = () => setMobileView(b.dataset.mv));
+
+// keep the mobile tab bar in sync when the app itself switches the 4th panel
+const _showTab = showTab;
+showTab = function (t) { _showTab(t); if (isMobile() && t === 'pano' && mView !== 'pano') setMobileView('pano'); };
+
+// bottom sheet
+const sheet = $('#tools');
+const openSheet = on => sheet.classList.toggle('open', on);
+$('#sheetHandle').onclick = () => openSheet(!sheet.classList.contains('open'));
+$('#btnMore').onclick = () => openSheet(true);
+function onToolChosen() { if (isMobile()) openSheet(false); }
+// actions inside the sheet that need the user to work in a view close it
+['btnPano', 'btnAddImplant', 'btnXray', 'imAlign', 'btnReset', 'btnFit'].forEach(id => $('#' + id).addEventListener('click', () => { if (isMobile()) openSheet(false); }));
+// a swipe down on the handle closes the sheet
+{
+  let y0 = null;
+  $('#sheetHandle').addEventListener('touchstart', e => { y0 = e.touches[0].clientY; }, { passive: true });
+  $('#sheetHandle').addEventListener('touchmove', e => { if (y0 !== null && e.touches[0].clientY - y0 > 40) { openSheet(false); y0 = null; } }, { passive: true });
+}
+
+// floating bar while drawing the panoramic curve
+const _setPanoDrawing = setPanoDrawing;
+setPanoDrawing = function (on) {
+  _setPanoDrawing(on);
+  $('#fab').classList.toggle('show', on);
+  if (on && isMobile() && mView !== 'axial') setMobileView('axial');
+};
+$('#fabDone').onclick = () => { if (S.pano.pts.length < 3) cancelPano(); else finishPano(); };
+$('#fabCancel').onclick = () => cancelPano();
+$('#fabUndo').onclick = () => { if (S.pano.drawing && S.pano.pts.length) { S.pano.pts.pop(); setPanoDrawing(true); } };
+
+// ▲▼ slice buttons (hold to repeat)
+document.querySelectorAll('.slbtns button').forEach(b => {
+  const v = VIEWS[b.closest('.view').id.slice(2)];
+  let t = null;
+  const stop = () => { clearInterval(t); t = null; };
+  b.addEventListener('pointerdown', e => {
+    e.preventDefault(); e.stopPropagation(); if (!S.vol) return;
+    const d = +b.dataset.sl; stepSlice(v, d);
+    stop(); let n = 0; t = setInterval(() => { n++; if (n > 3) stepSlice(v, d); }, 70);
+  });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => b.addEventListener(ev, stop));
+});
+
+// two-finger gestures: pinch = zoom, drag = pan, twist = rotate the other slices (MPR) — like Romexis on a tablet
+function attachGestures(v) {
+  const c = v.canvas, pts = new Map();
+  const two = () => [...pts.values()].slice(0, 2);
+  const geo = ([a, b]) => ({ d: Math.hypot(b[0] - a[0], b[1] - a[1]), ang: Math.atan2(b[1] - a[1], b[0] - a[0]), mx: (a[0] + b[0]) / 2, my: (a[1] + b[1]) / 2 });
+  c.addEventListener('pointerdown', e => {
+    if (e.pointerType !== 'touch') return;
+    pts.set(e.pointerId, [e.clientX, e.clientY]);
+    if (pts.size === 2 && (S.vol && (!v.isPano || S.pano.data))) {
+      const g = geo(two());
+      v.gesture = { ...g, zoom: v.zoom, panx: v.panx, pany: v.pany, n0: { ...S.n }, rotOn: false };
+      e.stopImmediatePropagation();
+    } else if (pts.size > 2) e.stopImmediatePropagation();
+  }, true);
+  c.addEventListener('pointermove', e => {
+    if (!pts.has(e.pointerId)) return;
+    pts.set(e.pointerId, [e.clientX, e.clientY]);
+    const G = v.gesture; if (!G || pts.size < 2) return;
+    e.stopImmediatePropagation();
+    const g = geo(two());
+    v.zoom = clamp(G.zoom * g.d / Math.max(10, G.d), 0.5, 25);
+    v.panx = G.panx + (g.mx - G.mx); v.pany = G.pany + (g.my - G.my);
+    if (!v.isPano) {
+      let da = g.ang - G.ang; da = Math.atan2(Math.sin(da), Math.cos(da));
+      const dead = 0.17; // ~10° before twisting starts rotating, so pinching doesn't rotate by accident
+      if (!G.rotOn && Math.abs(da) > dead) G.rotOn = true;
+      if (G.rotOn) {
+        S.cs = false;
+        const B = basis(v), sgn = Math.sign(dot(cross(B.n, B.U), B.V)) || 1, axis = S.n[v.name];
+        const a = (Math.abs(da) > dead ? da - Math.sign(da) * dead : 0) * sgn;
+        for (const o of NAMES) { if (o === v.name) continue; S.n[o] = norm(rot(G.n0[o], axis, a)); projectCenter(VIEWS[o]); VIEWS[o].needSample = true; }
+      }
+      v.needSample = true;
+    }
+    v.needDraw = true; schedule();
+  }, true);
+  const up = e => {
+    if (!pts.has(e.pointerId)) return;
+    pts.delete(e.pointerId);
+    if (v.gesture && pts.size < 2) { e.stopImmediatePropagation(); setTimeout(() => { v.gesture = null; }, 0); }
+  };
+  c.addEventListener('pointerup', up, true); c.addEventListener('pointercancel', up, true);
+}
+NAMES.forEach(n => attachGestures(VIEWS[n])); attachGestures(PV);
+
+// PWA: install button + service worker
+let installEvt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; $('#btnInstall').classList.add('show'); });
+$('#btnInstall').onclick = async () => {
+  if (installEvt) { installEvt.prompt(); await installEvt.userChoice; installEvt = null; $('#btnInstall').classList.remove('show'); }
+};
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+if (isIOS && !standalone) {
+  $('#btnInstall').classList.add('show');
+  $('#btnInstall').onclick = () => alert('iPhone / iPad-də quraşdırmaq üçün: Safari-də aşağıdakı “Paylaş” düyməsinə (□↑) basın və “Ana ekrana əlavə et” seçin.');
+}
+if ('serviceWorker' in navigator && location.protocol === 'https:' && !location.hostname.endsWith('claude.ai') && !location.hostname.includes('claudeusercontent')) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+// phones: the folder picker is not supported — point people to files / ZIP instead
+if (isMobile() || /android|iphone|ipad/i.test(navigator.userAgent)) {
+  document.querySelectorAll('#inDir, #inDir2').forEach(i => i.closest('label').style.display = 'none');
+  document.querySelector('.dropbox p').innerHTML = 'CBCT-nin <b>ZIP arxivini</b> və ya <b>.dcm fayllarını</b> seçin (WhatsApp, Telegram, e-mail və ya Fayllar tətbiqindən).<br>Aksial, koronal, sagittal kəsiklər avtomatik qurulacaq.';
+}
+function applyLayout() {
+  if (isMobile()) setMobileView(mView); else { openSheet(false); markAll(true); }
+}
+MQ.addEventListener ? MQ.addEventListener('change', applyLayout) : MQ.addListener(applyLayout);
+applyLayout();
+
+
+// make the file buttons open the picker explicitly (more reliable on phones than label → hidden input)
+document.querySelectorAll('label.btn').forEach(l => {
+  const inp = l.querySelector('input[type=file]'); if (!inp) return;
+  l.addEventListener('click', e => { if (e.target === inp) return; e.preventDefault(); try { inp.click(); } catch (_) {} });
+});
+/* ---------------- loading ---------------- */
+function showProg(p, t) { $('#prog').style.display = 'block'; $('#progFill').style.width = (p * 100).toFixed(0) + '%'; $('#progText').textContent = t; }
+function showErr(msg) { const e = $('#err'); e.innerHTML = msg; e.style.display = 'block'; $('#prog').style.display = 'none'; $('#drop').classList.remove('hidden'); }
+const tick = () => new Promise(r => setTimeout(r, 0));
+
+async function expand(files) {
+  // -> [{name, buf: () => Promise<ArrayBuffer>, size}]
+  const out = [];
+  for (const f of files) {
+    if (/\.zip$/i.test(f.name)) {
+      showProg(0, 'ZIP açılır…'); await tick();
+      const zip = await JSZip.loadAsync(f);
+      zip.forEach((path, entry) => {
+        if (!entry.dir && !/(^|\/)(__MACOSX|\.)/.test(path)) out.push({ name: path, buf: () => entry.async('arraybuffer') });
+      });
+    } else out.push({ name: f.webkitRelativePath || f.name, buf: () => f.arrayBuffer(), size: f.size });
+  }
+  return out;
+}
+async function walkEntry(entry, out) {
+  if (entry.isFile) out.push(await new Promise((res, rej) => entry.file(res, rej)));
+  else if (entry.isDirectory) {
+    const reader = entry.createReader();
+    let batch;
+    do {
+      batch = await new Promise((res, rej) => reader.readEntries(res, rej));
+      for (const e of batch) await walkEntry(e, out);
+    } while (batch.length);
+  }
+}
+
+const TS_UNCOMP = ['1.2.840.10008.1.2', '1.2.840.10008.1.2.1', '1.2.840.10008.1.2.2'];
+function nums(ds, tag) { const s = ds.string(tag); return s ? s.split('\\').map(parseFloat) : null; }
+function firstNum(ds, tag) { const a = nums(ds, tag); return a && isFinite(a[0]) ? a[0] : null; }
+function seqDs(ds, tag, i = 0) { const el = ds.elements[tag]; return el && el.items && el.items[i] ? el.items[i].dataSet : null; }
+
+function parseFile(ab, name) {
+  const ba = new Uint8Array(ab);
+  let ds;
+  try { ds = dicomParser.parseDicom(ba); }
+  catch (e) {
+    try { ds = dicomParser.parseDicom(ba, { TransferSyntaxUID: '1.2.840.10008.1.2' }); } catch (e2) { return null; }
+  }
+  const px = ds.elements.x7fe00010;
+  if (!px) return null;
+  const rows = ds.uint16('x00280010'), cols = ds.uint16('x00280011');
+  if (!rows || !cols) return null;
+  const ts = ds.string('x00020010') || '1.2.840.10008.1.2';
+  const info = {
+    name, ba, ds, px, rows, cols, ts,
+    compressed: !!px.encapsulatedPixelData || !TS_UNCOMP.includes(ts),
+    be: ts === '1.2.840.10008.1.2.2',
+    bits: ds.uint16('x00280100') || 16, pr: ds.uint16('x00280103') || 0, spp: ds.uint16('x00280002') || 1,
+    frames: parseInt(ds.string('x00280008') || '1', 10) || 1,
+    slope: firstNum(ds, 'x00281053') ?? 1, intercept: firstNum(ds, 'x00281052') ?? 0,
+    ps: nums(ds, 'x00280030'), thick: firstNum(ds, 'x00180050'), between: firstNum(ds, 'x00180088'),
+    pos: nums(ds, 'x00200032'), ori: nums(ds, 'x00200037'), inst: parseInt(ds.string('x00200013') || '0', 10),
+    series: ds.string('x0020000e') || 'x', mono1: (ds.string('x00280004') || '').trim() === 'MONOCHROME1',
+    wc: firstNum(ds, 'x00281050'), ww: firstNum(ds, 'x00281051')
+  };
+  // Enhanced multi-frame: spacing / rescale in functional groups
+  const shared = seqDs(ds, 'x52009229');
+  if (shared) {
+    const pm = seqDs(shared, 'x00289110');
+    if (pm) { info.ps = info.ps || nums(pm, 'x00280030'); info.thick = info.thick ?? firstNum(pm, 'x00180050'); info.between = info.between ?? firstNum(pm, 'x00180088'); }
+    const po = seqDs(shared, 'x00209116'); if (po && !info.ori) info.ori = nums(po, 'x00200037');
+    const rs = seqDs(shared, 'x00289145');
+    if (rs) { info.slope = firstNum(rs, 'x00281053') ?? info.slope; info.intercept = firstNum(rs, 'x00281052') ?? info.intercept; }
+  }
+  if (info.frames > 1) {
+    const pf = ds.elements.x52009230;
+    if (pf && pf.items && pf.items.length === info.frames) {
+      info.framePos = pf.items.map(it => { const pp = seqDs(it.dataSet, 'x00209113'); return pp ? nums(pp, 'x00200032') : null; });
+      if (info.framePos.some(p => !p)) info.framePos = null;
+    }
+  }
+  info.meta = {
+    patient: (ds.string('x00100010') || '').replace(/\^/g, ' ').trim(),
+    date: ds.string('x00080020') || '', maker: ds.string('x00080070') || '', model: ds.string('x00081090') || '',
+    modality: ds.string('x00080060') || ''
+  };
+  return info;
+}
+
+function readFrame(info, f, out, off) {
+  const n = info.rows * info.cols, bpp = info.bits / 8;
+  const start = info.px.dataOffset + f * n * bpp;
+  const { slope, intercept } = info;
+  let src;
+  if (info.bits === 16) {
+    const bytes = info.ba.slice(start, start + n * 2);
+    if (info.be) for (let i = 0; i < bytes.length; i += 2) { const t = bytes[i]; bytes[i] = bytes[i + 1]; bytes[i + 1] = t; }
+    src = info.pr ? new Int16Array(bytes.buffer) : new Uint16Array(bytes.buffer);
+  } else if (info.bits === 8) src = info.ba.subarray(start, start + n);
+  else if (info.bits === 32) {
+    const bytes = info.ba.slice(start, start + n * 4);
+    src = info.pr ? new Int32Array(bytes.buffer) : new Uint32Array(bytes.buffer);
+  } else throw new Error('bits');
+  if (slope === 1 && intercept === 0 && info.bits === 16 && info.pr) { out.set(src, off); return; }
+  for (let i = 0; i < n; i++) {
+    let v = Math.round(src[i] * slope + intercept);
+    out[off + i] = v < -32768 ? -32768 : v > 32767 ? 32767 : v;
+  }
+}
+
+function median(a) { const s = [...a].sort((x, y) => x - y); return s[s.length >> 1]; }
+
+async function loadFiles(rawFiles) {
+  $('#err').style.display = 'none';
+  $('#drop').classList.remove('hidden');
+  try {
+    const files = await expand(rawFiles);
+    if (!files.length) return showErr('Fayl tapılmadı.');
+    const infos = []; let compressedSeen = 0, colorSeen = 0;
+    for (let i = 0; i < files.length; i++) {
+      if (i % 8 === 0) { showProg(i / files.length * 0.8, `Fayllar oxunur… ${i} / ${files.length}`); await tick(); }
+      let ab; try { ab = await files[i].buf(); } catch (e) { continue; }
+      if (ab.byteLength < 256) continue;
+      const info = parseFile(ab, files[i].name);
+      if (!info) continue;
+      if (info.compressed) { compressedSeen++; continue; }
+      if (info.spp !== 1) { colorSeen++; continue; }
+      infos.push(info);
+    }
+    if (!infos.length) {
+      if (compressedSeen) return showErr(`<b>Bu fayllar sıxılmış formatdadır</b> (JPEG / JPEG 2000 və s.). Bu versiya hələ yalnız sıxılmamış DICOM-u açır.<br>CBCT proqramınızda ixrac edərkən <b>“Uncompressed”</b> və ya <b>“Explicit VR Little Endian”</b> seçin.`);
+      if (colorSeen) return showErr('Seçilən fayllar rəngli şəkillərdir, CBCT kəsikləri deyil.');
+      return showErr('Seçilən fayllarda DICOM görüntüsü tapılmadı. CBCT ixrac qovluğunu (.dcm faylları və ya DICOMDIR olan qovluq) seçin.');
+    }
+    // pick the largest series
+    const groups = new Map();
+    for (const it of infos) {
+      const k = it.series + '|' + it.rows + 'x' + it.cols;
+      if (!groups.has(k)) groups.set(k, []);
+      groups.get(k).push(it);
+    }
+    let best = null, bestN = 0;
+    for (const g of groups.values()) { const n = g.reduce((s, it) => s + it.frames, 0); if (n > bestN) { bestN = n; best = g; } }
+
+    showProg(0.85, 'Həcm qurulur…'); await tick();
+    const f0 = best[0];
+    const nx = f0.cols, ny = f0.rows;
+    const ps = f0.ps && f0.ps.length >= 2 ? f0.ps : [1, 1];
+    // slices: list of {info, frame, key}
+    let slices = [];
+    const ori = f0.ori && f0.ori.length === 6 ? f0.ori : [1, 0, 0, 0, 1, 0];
+    const nrm = [ori[1] * ori[5] - ori[2] * ori[4], ori[2] * ori[3] - ori[0] * ori[5], ori[0] * ori[4] - ori[1] * ori[3]];
+    const dot = p => p[0] * nrm[0] + p[1] * nrm[1] + p[2] * nrm[2];
+    for (const it of best) {
+      for (let f = 0; f < it.frames; f++) {
+        let key = null;
+        if (it.framePos) key = dot(it.framePos[f]);
+        else if (it.frames === 1 && it.pos && it.pos.length === 3) key = dot(it.pos);
+        slices.push({ it, f, key, inst: it.inst * 10000 + f });
+      }
+    }
+    const haveKeys = slices.every(s => s.key !== null && isFinite(s.key));
+    slices.sort(haveKeys ? (a, b) => a.key - b.key : (a, b) => a.inst - b.inst);
+    let sz = null;
+    if (haveKeys && slices.length > 1) {
+      const diffs = []; for (let i = 1; i < slices.length; i++) diffs.push(Math.abs(slices[i].key - slices[i - 1].key));
+      sz = median(diffs);
+    }
+    if (!sz || sz < 1e-4) sz = f0.between || f0.thick || ps[0];
+    const nz = slices.length;
+    const bytes = nx * ny * nz * 2;
+    if (bytes > 1.6e9) return showErr(`Həcm çox böyükdür (${(bytes / 1e9).toFixed(1)} GB). Daha kiçik sahə (FOV) və ya daha böyük voksel ölçüsü ilə ixrac edin.`);
+    let vol;
+    try { vol = new Int16Array(nx * ny * nz); } catch (e) { return showErr('Brauzerdə kifayət qədər yaddaş yoxdur. Digər tabları bağlayıb yenidən cəhd edin.'); }
+    const rc = nx * ny;
+    for (let k = 0; k < nz; k++) {
+      readFrame(slices[k].it, slices[k].f, vol, k * rc);
+      if (k % 16 === 0) { showProg(0.85 + 0.13 * k / nz, `Həcm qurulur… ${k} / ${nz}`); await tick(); }
+    }
+    if (f0.mono1) S.invert = true;
+    // free source buffers
+    for (const it of infos) { it.ba = null; it.ds = null; }
+
+    Object.assign(S, { vol, nx, ny, nz, sx: ps[1], sy: ps[0], sz });
+    // auto window from percentiles
+    const step = Math.max(1, Math.floor(vol.length / 400000)), sample = [];
+    for (let i = 0; i < vol.length; i += step) sample.push(vol[i]);
+    sample.sort((a, b) => a - b);
+    const lo = sample[Math.floor(sample.length * 0.02)], hi = sample[Math.floor(sample.length * 0.998)];
+    S.min = sample[0]; S.max = sample[sample.length - 1];
+    S.autoWL = [(lo + hi) / 2, Math.max(1, hi - lo)];
+    S.fileWL = f0.wc !== null && f0.ww ? [f0.wc, f0.ww] : null;
+    $('#rC').min = S.min; $('#rC').max = S.max; $('#rW').min = 1; $('#rW').max = Math.max(2, S.max - S.min) * 1.5;
+    $('#preset').value = 'auto';
+    $('#btnInv').classList.toggle('on', S.invert);
+    onVolumeLoaded();
+    setWL(...S.autoWL);
+
+    const m = f0.meta, row = (k, v) => v ? `<span>${k}</span><b>${esc(v)}</b>` : '';
+    const date = m.date.length === 8 ? `${m.date.slice(6)}.${m.date.slice(4, 6)}.${m.date.slice(0, 4)}` : m.date;
+    $('#meta').innerHTML = row('Pasiyent', m.patient) + row('Tarix', date) + row('Cihaz', [m.maker, m.model].filter(Boolean).join(' ')) +
+      row('Ölçü', `${nx} × ${ny} × ${nz}`) + row('Voksel', `${ps[1].toFixed(3)} × ${ps[0].toFixed(3)} × ${sz.toFixed(3)} mm`) +
+      row('Fayl', `${best.length}${groups.size > 1 ? ` (seriya: ${groups.size})` : ''}`);
+    showProg(1, 'Hazırdır');
+    $('#drop').classList.add('hidden');
+    resetAll();
+  } catch (e) {
+    console.error(e);
+    showErr('Faylları açarkən xəta baş verdi: ' + esc(e.message || String(e)));
+  }
+}
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+for (const id of ['inDir', 'inFiles', 'inDir2', 'inFiles2']) {
+  document.getElementById(id).addEventListener('change', e => { const fs = [...e.target.files]; e.target.value = ''; if (fs.length) loadFiles(fs); });
+}
+// drag & drop anywhere
+const box = $('#dropbox');
+['dragenter', 'dragover'].forEach(t => document.addEventListener(t, e => { e.preventDefault(); box.classList.add('over'); }));
+['dragleave', 'drop'].forEach(t => document.addEventListener(t, e => { e.preventDefault(); if (t === 'dragleave' && e.relatedTarget) return; box.classList.remove('over'); }));
+document.addEventListener('drop', async e => {
+  const items = [...(e.dataTransfer.items || [])];
+  const files = [];
+  if (items.length && items[0].webkitGetAsEntry) {
+    const entries = items.map(i => i.webkitGetAsEntry()).filter(Boolean);
+    for (const en of entries) await walkEntry(en, files);
+  } else files.push(...e.dataTransfer.files);
+  if (files.length) loadFiles(files);
+});
+if (typeof dicomParser === 'undefined') showErr('DICOM kitabxanası yüklənmədi. İnternet bağlantısını yoxlayın.');
+markAll();
+</script>
+</body>
+</html>

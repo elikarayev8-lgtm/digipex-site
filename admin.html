@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin panel — Digipex</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="supa.js"></script>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="./"><img src="digipex-logo.jpg" alt="">Digipex</a>
+  <nav><a href="./">Ana səhifə</a><a href="cbct.html">CBCT Baxış</a><a id="navAccount" href="giris.html">Giriş</a></nav>
+</header>
+<main>
+<div class="card wide">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+    <h1>Admin panel</h1><a class="btn sm" href="hesab.html">← Hesabım</a>
+  </div>
+  <p class="sub" id="stats">Yüklənir…</p>
+  <div class="filters" id="fStatus">
+    <button data-s="pending" class="on">Gözləyən</button><button data-s="approved">Təsdiqlənmiş</button><button data-s="rejected">Rədd edilmiş</button><button data-s="all">Hamısı</button>
+  </div>
+  <div class="filters" id="fRole">
+    <button data-r="all" class="on">Hamısı</button><button data-r="doctor">Həkimlər</button><button data-r="xray_center">Rentgen mərkəzləri</button>
+  </div>
+  <div class="msg" id="msg"></div>
+  <table><thead><tr><th>Ad / təşkilat</th><th>Növ</th><th>Əlaqə</th><th>Məlumat</th><th>Tarix</th><th>Status</th><th></th></tr></thead><tbody id="rows"></tbody></table>
+</div>
+<script>
+let all = [], fs = 'pending', fr = 'all';
+const fmtDate = s => s ? new Date(s).toLocaleDateString('az-AZ', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
+function render() {
+  const list = all.filter(p => (fs === 'all' || p.status === fs) && (fr === 'all' || p.role === fr));
+  const c = s => all.filter(p => p.status === s).length;
+  $('#stats').textContent = `Cəmi ${all.length} hesab · ${c('pending')} gözləyir · ${c('approved')} təsdiqlənib · ${c('rejected')} rədd edilib`;
+  $('#rows').innerHTML = list.length ? list.map(p => `<tr>
+    <td><b>${esc(p.full_name || '—')}</b><div class="muted">${esc(p.org_name || '')}</div></td>
+    <td>${ROLE_AZ[p.role]}</td>
+    <td>${esc(p.email)}<div class="muted">${esc(p.phone || '')}${p.city ? ' · ' + esc(p.city) : ''}</div></td>
+    <td class="muted">${p.role === 'doctor' ? esc([p.specialty, p.license_no && 'Lisenziya: ' + p.license_no].filter(Boolean).join(' · ')) : esc([p.devices, p.address].filter(Boolean).join(' · '))}${p.admin_note ? '<br>Qeyd: ' + esc(p.admin_note) : ''}</td>
+    <td class="muted">${fmtDate(p.created_at)}</td>
+    <td><span class="badge ${p.status}">${STATUS_AZ[p.status]}</span></td>
+    <td style="white-space:nowrap">${p.status !== 'approved' ? `<button class="btn sm ok" data-a="approve" data-id="${p.id}">✓ Təsdiqlə</button>` : ''}
+        ${p.status !== 'rejected' && !p.is_admin ? `<button class="btn sm danger" data-a="reject" data-id="${p.id}">✕ Rədd et</button>` : ''}</td>
+  </tr>`).join('') : '<tr><td colspan="7" class="muted" style="padding:24px">Bu filtrə uyğun hesab yoxdur.</td></tr>';
+}
+async function load() {
+  const { data, error } = await sb.from('profiles').select('*').order('created_at', { ascending: false });
+  if (error) return showMsg($('#msg'), 'err', azError(error));
+  all = data; render();
+}
+async function setStatus(id, status) {
+  const upd = { status };
+  if (status === 'rejected') { const note = prompt('Rədd səbəbi (istifadəçi görəcək, boş qoymaq olar):', ''); if (note === null) return; upd.admin_note = note; }
+  else upd.admin_note = null;
+  const { error } = await sb.from('profiles').update(upd).eq('id', id);
+  if (error) return showMsg($('#msg'), 'err', azError(error));
+  const p = all.find(x => x.id === id); Object.assign(p, upd); render();
+}
+document.querySelectorAll('#fStatus button').forEach(b => b.onclick = () => { fs = b.dataset.s; document.querySelectorAll('#fStatus button').forEach(x => x.classList.toggle('on', x === b)); render(); });
+document.querySelectorAll('#fRole button').forEach(b => b.onclick = () => { fr = b.dataset.r; document.querySelectorAll('#fRole button').forEach(x => x.classList.toggle('on', x === b)); render(); });
+$('#rows').onclick = e => { const b = e.target.closest('button[data-a]'); if (b) setStatus(b.dataset.id, b.dataset.a === 'approve' ? 'approved' : 'rejected'); };
+(async () => {
+  if (setupWarning()) { $('#stats').textContent = ''; return; }
+  const r = await currentProfile();
+  if (!r) { location.href = 'giris.html'; return; }
+  if (!r.profile || !r.profile.is_admin) { $('#stats').textContent = ''; showMsg($('#msg'), 'err', 'Bu səhifə yalnız admin üçündür.'); return; }
+  load();
+})();
+</script>
+
+</main>
+<footer class="bot"><span>© 2026 Digipex · digipexdental.com</span><a href="gizlilik.html">Gizlilik siyasəti</a></footer>
+</body>
+</html>

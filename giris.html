@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Giriş — Digipex</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="supa.js"></script>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="./"><img src="digipex-logo.jpg" alt="">Digipex</a>
+  <nav><a href="./">Ana səhifə</a><a href="cbct.html">CBCT Baxış</a><a id="navAccount" href="giris.html">Giriş</a></nav>
+</header>
+<main>
+<div class="card">
+  <div id="login">
+    <h1>Giriş</h1>
+    <p class="sub">Həkim və rentgen mərkəzi hesabına daxil olun.</p>
+    <form id="f" novalidate>
+      <label class="f">E-mail<input name="email" type="email" required autocomplete="email"></label>
+      <label class="f">Şifrə<input name="password" type="password" required autocomplete="current-password"></label>
+      <div class="msg" id="msg"></div>
+      <button class="btn primary" id="go" type="submit">Daxil ol</button>
+    </form>
+    <div class="alt"><a href="#" id="forgot">Şifrəni unutmusunuz?</a></div>
+    <div class="alt">Hesabınız yoxdur? <a href="qeydiyyat.html">Həkim</a> və ya <a href="qeydiyyat.html?rol=merkez">rentgen mərkəzi</a> kimi qeydiyyatdan keçin</div>
+  </div>
+  <div id="reset" class="hidden">
+    <h1>Yeni şifrə</h1>
+    <p class="sub">Hesabınız üçün yeni şifrə təyin edin.</p>
+    <form id="f2" novalidate>
+      <label class="f">Yeni şifrə <small>ən azı 8 simvol</small><input name="p1" type="password" minlength="8" autocomplete="new-password"></label>
+      <label class="f">Təkrar<input name="p2" type="password" minlength="8" autocomplete="new-password"></label>
+      <div class="msg" id="msg2"></div>
+      <button class="btn primary" type="submit">Şifrəni yadda saxla</button>
+    </form>
+  </div>
+</div>
+<script>
+setupWarning();
+const f = $('#f'), msg = $('#msg');
+f.onsubmit = async e => {
+  e.preventDefault();
+  if (!sb) return showMsg(msg, 'info', 'Server hələ qoşulmayıb.');
+  $('#go').disabled = true;
+  const { error } = await sb.auth.signInWithPassword({ email: f.email.value.trim(), password: f.password.value });
+  $('#go').disabled = false;
+  if (error) return showMsg(msg, 'err', azError(error));
+  location.href = 'hesab.html';
+};
+$('#forgot').onclick = async e => {
+  e.preventDefault();
+  const email = f.email.value.trim();
+  if (!email) return showMsg(msg, 'info', 'Əvvəlcə e-mail ünvanınızı yazın, sonra yenidən “Şifrəni unutmusunuz?” basın.');
+  if (!sb) return showMsg(msg, 'info', 'Server hələ qoşulmayıb.');
+  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: SITE_URL + '/giris.html' });
+  if (error) return showMsg(msg, 'err', azError(error));
+  showMsg(msg, 'ok', 'Şifrə bərpası linki e-mailinizə göndərildi.');
+};
+// e-maildəki bərpa linki ilə gələndə
+if (sb) sb.auth.onAuthStateChange(ev => { if (ev === 'PASSWORD_RECOVERY') { $('#login').classList.add('hidden'); $('#reset').classList.remove('hidden'); } });
+$('#f2').onsubmit = async e => {
+  e.preventDefault();
+  const m2 = $('#msg2'), p1 = e.target.p1.value, p2 = e.target.p2.value;
+  if (p1.length < 8) return showMsg(m2, 'err', 'Şifrə ən azı 8 simvol olmalıdır.');
+  if (p1 !== p2) return showMsg(m2, 'err', 'Şifrələr eyni deyil.');
+  const { error } = await sb.auth.updateUser({ password: p1 });
+  if (error) return showMsg(m2, 'err', azError(error));
+  showMsg(m2, 'ok', 'Şifrə yeniləndi. <a href="hesab.html">Hesabınıza keçin →</a>');
+};
+</script>
+
+</main>
+<footer class="bot"><span>© 2026 Digipex · digipexdental.com</span><a href="gizlilik.html">Gizlilik siyasəti</a></footer>
+</body>
+</html>

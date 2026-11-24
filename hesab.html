@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hesabım — Digipex</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="supa.js"></script>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="./"><img src="digipex-logo.jpg" alt="">Digipex</a>
+  <nav><a href="./">Ana səhifə</a><a href="cbct.html">CBCT Baxış</a><a id="navAccount" href="giris.html">Giriş</a></nav>
+</header>
+<main>
+<div class="card" style="max-width:760px">
+  <div id="loading" class="sub">Yüklənir…</div>
+  <div id="out" class="hidden">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+      <div><h1 id="hName"></h1><div class="sub" id="hRole" style="margin:0"></div></div>
+      <span class="badge" id="badge"></span>
+    </div>
+    <div class="msg" id="stMsg" style="margin-top:18px"></div>
+    <div class="tiles" id="tiles"></div>
+    <h3 style="margin:30px 0 4px;font-size:15px">Profil məlumatları</h3>
+    <form id="pf" style="margin-top:12px">
+      <div class="row2">
+        <label class="f"><span id="lName">Ad, soyad</span><input name="full_name" maxlength="120"></label>
+        <label class="f"><span id="lOrg">Klinika</span><input name="org_name" maxlength="160"></label>
+      </div>
+      <div class="row2 doc">
+        <label class="f">İxtisas<input name="specialty" maxlength="80"></label>
+        <label class="f">Diplom / lisenziya №<input name="license_no" maxlength="60"></label>
+      </div>
+      <label class="f ctr">Cihazlar<input name="devices" maxlength="200"></label>
+      <div class="row2">
+        <label class="f">Telefon<input name="phone" maxlength="40"></label>
+        <label class="f">Şəhər<input name="city" maxlength="60"></label>
+      </div>
+      <label class="f ctr">Ünvan<input name="address" maxlength="200"></label>
+      <div class="msg" id="pMsg"></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn primary" type="submit">Yadda saxla</button>
+        <button class="btn" type="button" id="logout">Çıxış</button>
+        <a class="btn hidden" id="adminLink" href="admin.html">⚙ Admin panel</a>
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+(async () => {
+  if (setupWarning()) { $('#loading').textContent = ''; return; }
+  const r = await currentProfile();
+  if (!r) { location.href = 'giris.html'; return; }
+  $('#loading').classList.add('hidden'); $('#out').classList.remove('hidden');
+  const p = r.profile;
+  if (!p) { showMsg($('#stMsg'), 'err', 'Profil tapılmadı. Bizimlə əlaqə saxlayın.'); return; }
+  const isDoc = p.role === 'doctor';
+  $('#hName').textContent = p.full_name || r.user.email;
+  $('#hRole').textContent = `${ROLE_AZ[p.role]}${p.org_name ? ' · ' + p.org_name : ''} · ${r.user.email}`;
+  const b = $('#badge'); b.className = 'badge ' + p.status; b.textContent = STATUS_AZ[p.status];
+  if (p.status === 'pending') showMsg($('#stMsg'), 'info', 'Hesabınız yoxlanılır. Təsdiqdən sonra bütün imkanlar açılacaq — adətən 1 iş günü ərzində.');
+  if (p.status === 'rejected') showMsg($('#stMsg'), 'err', 'Hesabınız təsdiqlənmədi.' + (p.admin_note ? ' Səbəb: ' + esc(p.admin_note) : '') + ' Sual üçün bizimlə əlaqə saxlayın.');
+  const ok = p.status === 'approved';
+  const tiles = isDoc ? [
+    ['🩻', 'CBCT Baxış', 'CBCT / DICOM fayllarını açın, implant planlayın', 'cbct.html', true],
+    ['⬇️', 'Digipex proqramı', 'Müalicə planlaması proqramını yükləyin', './#pricing', ok],
+    ['📥', 'Gələn CBCT-lər', 'Rentgen mərkəzlərindən göndərilən görüntülər — tezliklə', '#', false]
+  ] : [
+    ['🩻', 'CBCT Baxış', 'Görüntüləri yoxlayın', 'cbct.html', true],
+    ['📤', 'Həkimə göndər', 'CBCT-ni birbaşa həkimin hesabına göndərin — tezliklə', '#', false],
+    ['👥', 'Həkimlər', 'Əməkdaşlıq etdiyiniz həkimlər — tezliklə', '#', false]
+  ];
+  $('#tiles').innerHTML = tiles.map(([ic, t, s, h, on]) => `<a class="tile ${on ? '' : 'off'}" href="${h}"><span style="font-size:22px">${ic}</span><b>${t}</b><span>${s}</span></a>`).join('');
+  const f = $('#pf');
+  ['full_name', 'org_name', 'specialty', 'license_no', 'devices', 'phone', 'city', 'address'].forEach(k => { if (f[k]) f[k].value = p[k] || ''; });
+  document.querySelectorAll('.doc').forEach(e => e.classList.toggle('hidden', !isDoc));
+  document.querySelectorAll('.ctr').forEach(e => e.classList.toggle('hidden', isDoc));
+  $('#lName').textContent = isDoc ? 'Ad, soyad' : 'Məsul şəxs';
+  $('#lOrg').textContent = isDoc ? 'Klinika' : 'Mərkəzin adı';
+  if (p.is_admin) $('#adminLink').classList.remove('hidden');
+  f.onsubmit = async e => {
+    e.preventDefault();
+    const d = Object.fromEntries(new FormData(f));
+    const upd = {}; Object.keys(d).forEach(k => upd[k] = d[k].trim());
+    const { error } = await sb.from('profiles').update(upd).eq('id', r.user.id);
+    showMsg($('#pMsg'), error ? 'err' : 'ok', error ? azError(error) : 'Yadda saxlanıldı.');
+  };
+  $('#logout').onclick = async () => { await sb.auth.signOut(); location.href = './'; };
+})();
+</script>
+
+</main>
+<footer class="bot"><span>© 2026 Digipex · digipexdental.com</span><a href="gizlilik.html">Gizlilik siyasəti</a></footer>
+</body>
+</html>

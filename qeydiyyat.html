@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Qeydiyyat — Digipex</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="supa.js"></script>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="./"><img src="digipex-logo.jpg" alt="">Digipex</a>
+  <nav><a href="./">Ana səhifə</a><a href="cbct.html">CBCT Baxış</a><a id="navAccount" href="giris.html">Giriş</a></nav>
+</header>
+<main>
+<div class="card">
+  <h1>Qeydiyyat</h1>
+  <p class="sub">Digipex platformasına qoşulun. Qeydiyyatdan sonra e-mailinizi təsdiqləyin — hesabınız yoxlanıldıqdan sonra aktivləşəcək.</p>
+  <div class="roles">
+    <button type="button" class="role on" data-role="doctor"><span class="ic">🦷</span><b>Həkim</b><span>Stomatoloq — CBCT baxış, implant planlaması, Digipex proqramı</span></button>
+    <button type="button" class="role" data-role="xray_center"><span class="ic">☢️</span><b>Rentgen mərkəzi</b><span>CBCT / panoramik çəkən mərkəz — həkimlərlə görüntü paylaşımı</span></button>
+  </div>
+  <form id="f" novalidate>
+    <div class="row2">
+      <label class="f"><span id="lName">Ad, soyad</span><input name="full_name" required maxlength="120" autocomplete="name"></label>
+      <label class="f"><span id="lOrg">Klinika</span><input name="org_name" maxlength="160" autocomplete="organization"></label>
+    </div>
+    <div class="row2 doc">
+      <label class="f">İxtisas<select name="specialty">
+        <option value="">Seçin</option><option>Ümumi stomatoloq</option><option>Ortoped</option><option>Terapevt / endodontist</option>
+        <option>Cərrah / implantoloq</option><option>Ortodont</option><option>Parodontoloq</option><option>Uşaq stomatoloqu</option><option>Digər</option></select></label>
+      <label class="f">Diplom / lisenziya № <small>yoxlama üçün</small><input name="license_no" maxlength="60"></label>
+    </div>
+    <label class="f ctr hidden">Cihazlar <small>məs. Planmeca ProMax 3D, Vatech PaX-i3D</small><input name="devices" maxlength="200"></label>
+    <div class="row2">
+      <label class="f">Telefon<input name="phone" type="tel" maxlength="40" placeholder="+994 __ ___ __ __" autocomplete="tel"></label>
+      <label class="f">Şəhər<input name="city" maxlength="60" value="Bakı" autocomplete="address-level2"></label>
+    </div>
+    <label class="f ctr hidden">Ünvan<input name="address" maxlength="200" autocomplete="street-address"></label>
+    <label class="f">E-mail<input name="email" type="email" required autocomplete="email"></label>
+    <div class="row2">
+      <label class="f">Şifrə <small>ən azı 8 simvol</small><input name="password" type="password" required minlength="8" autocomplete="new-password"></label>
+      <label class="f">Şifrə təkrar<input name="password2" type="password" required minlength="8" autocomplete="new-password"></label>
+    </div>
+    <label class="chk"><input type="checkbox" name="agree" required><span><a href="gizlilik.html" target="_blank">Gizlilik siyasəti</a> ilə tanış oldum və məlumatlarımın hesabın yoxlanılması üçün emal edilməsinə razıyam.</span></label>
+    <div class="msg" id="msg"></div>
+    <button class="btn primary" id="go" type="submit">Qeydiyyatdan keç</button>
+  </form>
+  <div class="alt">Artıq hesabınız var? <a href="giris.html">Daxil olun</a></div>
+</div>
+<script>
+let role = 'doctor';
+const f = $('#f');
+function setRole(r) {
+  role = r;
+  document.querySelectorAll('.role').forEach(b => b.classList.toggle('on', b.dataset.role === r));
+  document.querySelectorAll('.doc').forEach(e => e.classList.toggle('hidden', r !== 'doctor'));
+  document.querySelectorAll('.ctr').forEach(e => e.classList.toggle('hidden', r !== 'xray_center'));
+  $('#lName').textContent = r === 'doctor' ? 'Ad, soyad' : 'Məsul şəxs (ad, soyad)';
+  $('#lOrg').textContent = r === 'doctor' ? 'Klinika' : 'Mərkəzin adı';
+  f.org_name.required = r === 'xray_center';
+}
+document.querySelectorAll('.role').forEach(b => b.onclick = () => setRole(b.dataset.role));
+if (new URLSearchParams(location.search).get('rol') === 'merkez') setRole('xray_center');
+setupWarning();
+f.onsubmit = async e => {
+  e.preventDefault();
+  const msg = $('#msg'), d = Object.fromEntries(new FormData(f));
+  if (!d.full_name.trim()) return showMsg(msg, 'err', 'Ad və soyadı yazın.');
+  if (role === 'xray_center' && !d.org_name.trim()) return showMsg(msg, 'err', 'Mərkəzin adını yazın.');
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(d.email)) return showMsg(msg, 'err', 'E-mail ünvanı düzgün deyil.');
+  if (d.password.length < 8) return showMsg(msg, 'err', 'Şifrə ən azı 8 simvol olmalıdır.');
+  if (d.password !== d.password2) return showMsg(msg, 'err', 'Şifrələr eyni deyil.');
+  if (!f.agree.checked) return showMsg(msg, 'err', 'Gizlilik siyasəti ilə razılığınızı təsdiqləyin.');
+  if (!sb) return showMsg(msg, 'info', 'Server hələ qoşulmayıb — qeydiyyat tezliklə aktiv olacaq.');
+  const meta = { role, full_name: d.full_name.trim(), org_name: d.org_name.trim(), phone: d.phone.trim(), city: d.city.trim() };
+  if (role === 'doctor') Object.assign(meta, { specialty: d.specialty, license_no: d.license_no.trim() });
+  else Object.assign(meta, { devices: d.devices.trim(), address: d.address.trim() });
+  $('#go').disabled = true; $('#go').textContent = 'Göndərilir…';
+  const { data, error } = await sb.auth.signUp({ email: d.email.trim(), password: d.password,
+    options: { data: meta, emailRedirectTo: SITE_URL + '/hesab.html' } });
+  $('#go').disabled = false; $('#go').textContent = 'Qeydiyyatdan keç';
+  if (error) return showMsg(msg, 'err', azError(error));
+  // Supabase mövcud e-maili gizlətmək üçün boş identities qaytarır
+  if (data.user && data.user.identities && data.user.identities.length === 0) return showMsg(msg, 'err', azError({ message: 'already registered' }));
+  f.querySelectorAll('input,select,button').forEach(x => x.disabled = true);
+  showMsg(msg, 'ok', `<b>Qeydiyyat qəbul olundu!</b><br>${esc(d.email)} ünvanına təsdiq linki göndərdik. Linkə klikləyin — sonra hesabınız yoxlanılacaq və aktivləşdiriləcək. Məktub gəlmirsə, “Spam” qovluğuna baxın.`);
+};
+</script>
+
+</main>
+<footer class="bot"><span>© 2026 Digipex · digipexdental.com</span><a href="gizlilik.html">Gizlilik siyasəti</a></footer>
+</body>
+</html>
